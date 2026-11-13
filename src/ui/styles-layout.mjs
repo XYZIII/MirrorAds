@@ -688,14 +688,36 @@ export function buildLayoutStyles(appId) {
       ${A} .ma-rep-zonepick span { font-size: 12px; color: var(--ma-muted); white-space: nowrap; }
       ${A} .ma-rep-zonepick select { flex: 0 0 auto; width: auto; }
       ${A} .ma-rep-zonepick select { height: 34px; max-width: 230px; font-size: 12px; }
-      ${A} .ma-rep-camps { display: flex; gap: 6px; margin-top: 5px; }
+      ${A} .ma-rep-camps { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 5px; }
       ${A} .ma-rep-camps i {
+        white-space: nowrap;
         padding: 1px 8px;
         border-radius: 999px;
         font-size: 11px;
         font-style: normal;
         font-weight: 600;
       }
+      ${A} .ma-rep-statusbar { margin: 0 0 12px; }
+      ${A} .ma-rep-statusbar > span { font-size: 12px; color: var(--ma-muted); }
+      ${A} .ma-rep-health { background: #f1f2f5; color: var(--ma-muted); }
+      ${A} .ma-rep-health::before {
+        content: "";
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        margin-right: 5px;
+        border-radius: 50%;
+        background: currentColor;
+        vertical-align: 1px;
+      }
+      ${A} .ma-rep-health-live { background: transparent; padding-left: 0; color: #1f6a10; }
+      ${A} .ma-rep-health-banned,
+      ${A} .ma-rep-health-closed { background: #ffe9e9; color: #b42318; }
+      ${A} .ma-rep-health-review,
+      ${A} .ma-rep-health-billing { background: #fff7e0; color: #7a5200; }
+      ${A} .ma-rep-stuck { background: #f1f2f5; color: var(--ma-muted); font-weight: 500; }
+      ${A} .ma-rep-dead { background: #fffafa; border-color: #f6d5d5; }
+      ${A} .ma-rep-dead .ma-rep-acct b { color: var(--ma-muted); }
       ${A} .ma-rep-on { background: #dcf7c0; color: #1f6a10; }
       ${A} .ma-rep-on.is-zero { background: #f1f2f5; color: var(--ma-faint); font-weight: 500; }
       ${A} .ma-rep-off { background: #f1f2f5; color: var(--ma-muted); font-weight: 500; }

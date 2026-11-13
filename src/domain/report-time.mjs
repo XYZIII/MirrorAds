@@ -261,7 +261,10 @@ export function totalReport(rows) {
     activeCampaigns: 0,
   };
   for (const row of rows || []) {
-    total.activeCampaigns += Number(row.activeCampaigns) || 0;
+    // Campaigns switched on in an account that cannot deliver are not running.
+    if (accountDelivers(row.health)) {
+      total.activeCampaigns += Number(row.activeCampaigns) || 0;
+    }
     if (row.error) continue;
     if (row.spendUsd === null) {
       if (row.spend > 0) total.unconverted += 1;
@@ -325,4 +328,36 @@ export function reportZoneChoices() {
       offsets.push({ zone, label: formatUtcOffset(hours * 60) });
   }
   return { cities, offsets };
+}
+
+/**
+ * Whether an ad account can deliver ads, from Meta's `account_status`:
+ * "live" (active or in its grace period), "billing" (unpaid balance),
+ * "review" (held for a risk review), "banned" (disabled), "closed", or
+ * "unknown" when Meta gave no status.
+ */
+export function classifyAccountStatus(code) {
+  const status = Number(code);
+  if (!Number.isFinite(status) || status <= 0) return "unknown";
+  if (status === 1 || status === 9 || status === 201) return "live";
+  if (status === 3 || status === 8) return "billing";
+  if (status === 7) return "review";
+  if (status === 100 || status === 101 || status === 202) return "closed";
+  return "banned";
+}
+
+/** Only a live account runs its campaigns; an unknown status is not held against it. */
+export function accountDelivers(health) {
+  return health === "live" || health === "unknown";
+}
+
+/** Rows for a status filter: "all", "live" or "dead" (anything not delivering). */
+export function filterReportRows(rows, filter) {
+  if (filter === "live") {
+    return (rows || []).filter((row) => accountDelivers(row.health));
+  }
+  if (filter === "dead") {
+    return (rows || []).filter((row) => !accountDelivers(row.health));
+  }
+  return rows || [];
 }

@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  accountDelivers,
   addDays,
+  classifyAccountStatus,
+  filterReportRows,
   dateInZone,
   filterHourlyRows,
   formatUtcOffset,
@@ -467,4 +470,112 @@ test("a custom period with hours cuts hourly data on the account's clock", async
     since: "2026-11-13",
     until: "2026-11-14",
   });
+});
+
+test("account status decides whether campaigns can run", () => {
+  assert.equal(classifyAccountStatus(1), "live");
+  assert.equal(classifyAccountStatus(9), "live");
+  assert.equal(classifyAccountStatus(2), "banned");
+  assert.equal(classifyAccountStatus(7), "review");
+  assert.equal(classifyAccountStatus(3), "billing");
+  assert.equal(classifyAccountStatus(101), "closed");
+  assert.equal(classifyAccountStatus(undefined), "unknown");
+  assert.equal(accountDelivers("live"), true);
+  assert.equal(accountDelivers("unknown"), true);
+  for (const health of ["banned", "review", "billing", "closed"]) {
+    assert.equal(accountDelivers(health), false, health);
+  }
+});
+
+test("active campaigns count only in accounts that can deliver", () => {
+  const rows = [
+    {
+      name: "live",
+      health: "live",
+      spend: 10,
+      spendUsd: 10,
+      leads: 1,
+      purchases: 0,
+      activeCampaigns: 3,
+    },
+    {
+      name: "banned",
+      health: "banned",
+      spend: 5,
+      spendUsd: 5,
+      leads: 0,
+      purchases: 0,
+      activeCampaigns: 20,
+    },
+    {
+      name: "debt",
+      health: "billing",
+      spend: 0,
+      spendUsd: 0,
+      leads: 0,
+      purchases: 0,
+      activeCampaigns: 4,
+    },
+    {
+      name: "new",
+      health: "unknown",
+      spend: 0,
+      spendUsd: 0,
+      leads: 0,
+      purchases: 0,
+      activeCampaigns: 1,
+    },
+  ];
+  // Spend of a banned account still happened and stays in the total.
+  const total = totalReport(rows);
+  assert.equal(total.activeCampaigns, 4);
+  assert.equal(total.spendUsd, 15);
+  assert.deepEqual(
+    filterReportRows(rows, "live").map((row) => row.name),
+    ["live", "new"],
+  );
+  assert.deepEqual(
+    filterReportRows(rows, "dead").map((row) => row.name),
+    ["banned", "debt"],
+  );
+  assert.equal(filterReportRows(rows, "all").length, 4);
+  assert.equal(totalReport(filterReportRows(rows, "dead")).activeCampaigns, 0);
+});
+
+test("the report reads each account's status afresh", async () => {
+  const meta = structuredClone(META);
+  meta[111].account_status = 2;
+  meta[111].disable_reason = 1;
+  meta[222].account_status = 1;
+  const { service } = createService({
+    meta,
+    hourlyRows: {},
+    dailyRows: {},
+    campaigns: {
+      111: [{ effective_status: "ACTIVE" }, { effective_status: "ACTIVE" }],
+      222: [{ effective_status: "ACTIVE" }],
+    },
+  });
+  const load = () =>
+    service.loadReport({
+      accounts: ACCOUNTS,
+      period: "today",
+      zoneMode: "account",
+      viewerZone: KYIV,
+      nowMs: NOW,
+    });
+  const first = await load();
+  const banned = first.rows.find((row) => row.name === "Bangkok");
+  assert.equal(banned.health, "banned");
+  assert.equal(banned.statusCode, 2);
+  assert.equal(banned.disableReason, 1);
+  assert.equal(first.rows.find((row) => row.name === "Kyiv").health, "live");
+  assert.equal(first.rows.find((row) => row.name === "LA").health, "unknown");
+  // Two campaigns are switched on in the banned account; only Kyiv's counts.
+  assert.equal(first.total.activeCampaigns, 1);
+  // The second report sees the ban that happened in between.
+  meta[222].account_status = 2;
+  const second = await load();
+  assert.equal(second.rows.find((row) => row.name === "Kyiv").health, "banned");
+  assert.equal(second.total.activeCampaigns, 0);
 });

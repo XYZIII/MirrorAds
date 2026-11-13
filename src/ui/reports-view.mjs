@@ -1,10 +1,13 @@
 import {
+  accountDelivers,
   addDays,
   clockInZone,
   dateInZone,
+  filterReportRows,
   formatUtcOffset,
   isKnownTimeZone,
   reportZoneChoices,
+  totalReport,
   validateCustomPeriod,
   zoneOffsetMinutes,
 } from "../domain/report-time.mjs";
@@ -13,6 +16,7 @@ import { t } from "./i18n.mjs";
 import { ICONS } from "./icons.mjs";
 
 const PERIODS = ["today", "yesterday", "last7", "custom"];
+const STATUSES = ["all", "live", "dead"];
 const ZONE_KEY = "mirrorads.report.zone";
 const ZONES = ["account", "viewer"];
 
@@ -138,6 +142,9 @@ export class ReportsView {
       } else if (kind === "refresh") {
         this.readCustomInputs();
         this.load();
+      } else if (kind === "status" && STATUSES.includes(value)) {
+        state.reportStatusFilter = value;
+        this.render();
       } else if (kind === "empty") {
         state.reportShowEmpty = !state.reportShowEmpty;
         this.render();
@@ -239,18 +246,39 @@ export class ReportsView {
       : row.basis === "account-fallback"
         ? `<div class="ma-rep-note" title="${escapeHtml(t("reports.fallbackHint"))}">${escapeHtml(t("reports.fallback"))}</div>`
         : "";
-    const campaigns =
+    const delivers = accountDelivers(row.health);
+    const running = delivers ? row.activeCampaigns || 0 : 0;
+    const health =
+      row.health && row.health !== "unknown"
+        ? `<i class="ma-rep-health ma-rep-health-${row.health}" title="${escapeHtml(
+            t("reports.healthHint", {
+              status: row.statusCode ?? "?",
+              reason: row.disableReason || "—",
+            }),
+          )}">${escapeHtml(t(`reports.health.${row.health}`))}</i>`
+        : "";
+    const counts =
       row.activeCampaigns === null || row.activeCampaigns === undefined
         ? ""
-        : `<div class="ma-rep-camps"><i class="ma-rep-on${row.activeCampaigns ? "" : " is-zero"}" title="${escapeHtml(t("reports.activeHint"))}">${escapeHtml(
-            t("reports.active", { count: row.activeCampaigns }),
-          )}</i><i class="ma-rep-off" title="${escapeHtml(t("reports.inactiveHint"))}">${escapeHtml(
-            t("reports.inactive", { count: row.inactiveCampaigns }),
-          )}</i></div>`;
+        : delivers
+          ? `<i class="ma-rep-on${row.activeCampaigns ? "" : " is-zero"}" title="${escapeHtml(t("reports.activeHint"))}">${escapeHtml(
+              t("reports.active", { count: row.activeCampaigns }),
+            )}</i><i class="ma-rep-off" title="${escapeHtml(t("reports.inactiveHint"))}">${escapeHtml(
+              t("reports.inactive", { count: row.inactiveCampaigns }),
+            )}</i>`
+          : row.activeCampaigns
+            ? `<i class="ma-rep-stuck" title="${escapeHtml(t("reports.stuckHint"))}">${escapeHtml(
+                t("reports.stuck", { count: row.activeCampaigns }),
+              )}</i>`
+            : "";
+    const campaigns =
+      health || counts
+        ? `<div class="ma-rep-camps">${health}${counts}</div>`
+        : "";
     const spendUsd =
       row.spendUsd === null && row.spend > 0 ? null : row.spendUsd;
     return `
-      <div class="ma-rep-row${row.spend > 0 || row.activeCampaigns > 0 ? "" : " ma-rep-zero"}">
+      <div class="ma-rep-row${row.spend > 0 || running > 0 ? "" : " ma-rep-zero"}${delivers ? "" : " ma-rep-dead"}">
         <div class="ma-rep-acct">
           <b title="${escapeHtml(row.name)}">${escapeHtml(row.name)}</b>
           <span>${escapeHtml(row.accountId)}${zone ? ` · ${escapeHtml(zone)}` : ""}</span>
@@ -337,6 +365,11 @@ export class ReportsView {
           ? `<div class="ma-rep-warn">${escapeHtml(state.reportError)}</div>`
           : ""
       }`;
+    const statusFilter = `
+      <div class="ma-rep-controls ma-rep-statusbar">
+        <span>${escapeHtml(t("reports.statusLabel"))}</span>
+        ${this.segment("status", STATUSES, state.reportStatusFilter)}
+      </div>`;
     if (state.reportError && !report) {
       panel.innerHTML = `${controls}<div class="ma-rep-empty">${escapeHtml(state.reportError)}</div>`;
       return;
@@ -347,13 +380,23 @@ export class ReportsView {
       )}</div>`;
       return;
     }
-    const total = report.total;
-    // An account with campaigns switched on matters even before it spends.
-    const spent = report.rows.filter(
-      (row) => row.spend > 0 || row.error || row.activeCampaigns > 0,
-    );
-    const idle = report.rows.length - spent.length;
-    const visible = state.reportShowEmpty ? report.rows : spent;
+    const filter = state.reportStatusFilter;
+    const rows = filterReportRows(report.rows, filter);
+    // The tiles add up what the status filter shows.
+    const total = filter === "all" ? report.total : totalReport(rows);
+    // An account whose campaigns are running matters even before it spends.
+    // The "not working" filter lists every such account, spending or not.
+    const spent =
+      filter === "dead"
+        ? rows
+        : rows.filter(
+            (row) =>
+              row.spend > 0 ||
+              row.error ||
+              (accountDelivers(row.health) && row.activeCampaigns > 0),
+          );
+    const idle = rows.length - spent.length;
+    const visible = state.reportShowEmpty ? rows : spent;
     const tile = (label, value, sub = "") =>
       `<div class="ma-rep-tile"><span>${escapeHtml(label)}</span><b>${escapeHtml(value)}</b>${
         sub ? `<small>${escapeHtml(sub)}</small>` : ""
@@ -379,6 +422,7 @@ export class ReportsView {
           ? `<div class="ma-rep-warn">${escapeHtml(t("reports.noConversions"))}</div>`
           : ""
       }
+      ${statusFilter}
       <div class="ma-rep-head">
         <span>${escapeHtml(t("reports.account"))}</span>
         <span>${escapeHtml(t("reports.spend"))}</span>
@@ -389,7 +433,7 @@ export class ReportsView {
       <div class="ma-rep-list${state.reportLoading ? " ma-rep-stale" : ""}">
         ${
           visible.map((row) => this.rowMarkup(row, report.nowMs)).join("") ||
-          `<div class="ma-rep-empty">${escapeHtml(t("reports.noSpend"))}</div>`
+          `<div class="ma-rep-empty">${escapeHtml(t(filter === "dead" ? "reports.noDead" : "reports.noSpend"))}</div>`
         }
       </div>
       ${

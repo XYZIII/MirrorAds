@@ -87,6 +87,7 @@ export class MirrorAdsState {
     this.reportProgress = "";
     this.reportError = "";
     this.reportShowEmpty = false;
+    this.reportStatusFilter = "all";
     // null: not read from storage yet; "": follow the browser.
     this.reportViewerZone = null;
     this.reportCustom = null;

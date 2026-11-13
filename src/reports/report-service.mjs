@@ -1,5 +1,6 @@
 import { normalizeAccountId } from "../domain/ids.mjs";
 import {
+  classifyAccountStatus,
   countCampaigns,
   filterHourlyRows,
   isKnownTimeZone,
@@ -11,7 +12,7 @@ import {
 } from "../domain/report-time.mjs";
 
 const ACCOUNT_FIELDS =
-  "currency,account_currency_ratio_to_usd,timezone_name,timezone_offset_hours_utc";
+  "currency,account_currency_ratio_to_usd,timezone_name,timezone_offset_hours_utc,account_status,disable_reason";
 const INSIGHT_FIELDS = "spend,impressions,clicks,actions";
 const HOURLY = "hourly_stats_aggregated_by_advertiser_time_zone";
 const CONCURRENCY = 4;
@@ -24,7 +25,7 @@ export class ReportService {
     this.loadReport = this.loadReport.bind(this);
   }
 
-  /** Currency, USD ratio and time zone of an ad account; cached per session. */
+  /** Currency, USD ratio, time zone and status of an ad account, per report. */
   async loadAccountMeta(accountId) {
     if (this.accountMeta.has(accountId)) return this.accountMeta.get(accountId);
     const { graphFetch } = this.dependencies.graphClient;
@@ -41,6 +42,9 @@ export class ReportService {
       currency: String(row?.currency || "").toUpperCase(),
       ratio: Number(row?.account_currency_ratio_to_usd) || 0,
       timeZone: isKnownTimeZone(row?.timezone_name) ? row.timezone_name : fixed,
+      statusCode: Number(row?.account_status) || null,
+      disableReason: Number(row?.disable_reason) || 0,
+      health: classifyAccountStatus(row?.account_status),
     };
     this.accountMeta.set(accountId, meta);
     return meta;
@@ -132,6 +136,9 @@ export class ReportService {
         spendUsd: toUsd(summary.spend, meta.currency, meta.ratio),
         activeCampaigns: campaigns ? campaigns.active : null,
         inactiveCampaigns: campaigns ? campaigns.inactive : null,
+        health: meta.health,
+        statusCode: meta.statusCode,
+        disableReason: meta.disableReason,
         error: "",
       };
     } catch (error) {
@@ -148,6 +155,15 @@ export class ReportService {
         offsetMinutes: null,
         activeCampaigns: campaigns ? campaigns.active : null,
         inactiveCampaigns: campaigns ? campaigns.inactive : null,
+        // The account itself could not be read: fall back to the status it
+        // had when the account list was loaded.
+        health: classifyAccountStatus(
+          account?.raw?.account_status ?? account?.account_status,
+        ),
+        statusCode:
+          Number(account?.raw?.account_status ?? account?.account_status) ||
+          null,
+        disableReason: 0,
         error: String(error?.message || error),
       };
     }
@@ -170,6 +186,8 @@ export class ReportService {
     const queue = [...(accounts || [])];
     const rows = [];
     const options = { period, custom, zoneMode, viewerZone, nowMs };
+    // An account can be banned between two reports: read its status afresh.
+    this.accountMeta.clear();
     const worker = async () => {
       while (queue.length) {
         const account = queue.shift();
