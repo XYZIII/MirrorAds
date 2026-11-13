@@ -1,9 +1,19 @@
-import { clockInZone, formatUtcOffset } from "../domain/report-time.mjs";
+import {
+  addDays,
+  clockInZone,
+  dateInZone,
+  formatUtcOffset,
+  isKnownTimeZone,
+  reportZoneChoices,
+  validateCustomPeriod,
+  zoneOffsetMinutes,
+} from "../domain/report-time.mjs";
 import { escapeHtml } from "../utils/string.mjs";
 import { t } from "./i18n.mjs";
 import { ICONS } from "./icons.mjs";
 
-const PERIODS = ["today", "yesterday", "last7"];
+const PERIODS = ["today", "yesterday", "last7", "custom"];
+const ZONE_KEY = "mirrorads.report.zone";
 const ZONES = ["account", "viewer"];
 
 const money = (value) =>
@@ -33,12 +43,73 @@ export class ReportsView {
     return dom.root?.querySelector(`#${appId}-panel-reports`) || null;
   }
 
-  viewerZone() {
+  /** The browser's zone. Anti-detect profiles and proxies often change it. */
+  browserZone() {
     try {
       return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
     } catch {
       return "UTC";
     }
+  }
+
+  /** The zone "My time" uses: the one picked by hand, else the browser's. */
+  viewerZone() {
+    const { state } = this.dependencies;
+    if (state.reportViewerZone === null) {
+      let saved = "";
+      try {
+        saved = localStorage.getItem(ZONE_KEY) || "";
+      } catch {
+        saved = "";
+      }
+      state.reportViewerZone = isKnownTimeZone(saved) ? saved : "";
+    }
+    return state.reportViewerZone || this.browserZone();
+  }
+
+  setViewerZone(zone) {
+    const { state } = this.dependencies;
+    state.reportViewerZone = isKnownTimeZone(zone) ? zone : "";
+    try {
+      if (state.reportViewerZone) {
+        localStorage.setItem(ZONE_KEY, state.reportViewerZone);
+      } else {
+        localStorage.removeItem(ZONE_KEY);
+      }
+    } catch {
+      // The choice still holds for this session.
+    }
+  }
+
+  /** The custom period, defaulting to yesterday and today. */
+  customPeriod() {
+    const { state } = this.dependencies;
+    if (!state.reportCustom) {
+      const today = dateInZone(Date.now(), this.viewerZone());
+      state.reportCustom = {
+        since: addDays(today, -1),
+        until: today,
+        withTime: false,
+        sinceHour: 0,
+        untilHour: 23,
+      };
+    }
+    return state.reportCustom;
+  }
+
+  /** Reads the custom period inputs back into state. */
+  readCustomInputs() {
+    const panel = this.panel;
+    const custom = this.customPeriod();
+    const value = (name) =>
+      panel?.querySelector(`[data-report-input="${name}"]`)?.value;
+    custom.since = value("since") || custom.since;
+    custom.until = value("until") || custom.until;
+    if (custom.withTime) {
+      custom.sinceHour = Number(value("sinceHour") ?? custom.sinceHour);
+      custom.untilHour = Number(value("untilHour") ?? custom.untilHour);
+    }
+    return custom;
   }
 
   bind(root) {
@@ -51,16 +122,33 @@ export class ReportsView {
       const [kind, value] = target.dataset.report.split(":");
       if (kind === "period" && PERIODS.includes(value)) {
         state.reportPeriod = value;
-        this.load();
+        // A custom period waits for its dates and the Show button.
+        if (value === "custom") this.render();
+        else this.load();
       } else if (kind === "zone" && ZONES.includes(value)) {
+        this.readCustomInputs();
         state.reportZone = value;
         this.load();
+      } else if (kind === "apply") {
+        this.readCustomInputs();
+        this.load();
+      } else if (kind === "time") {
+        this.readCustomInputs().withTime = !this.customPeriod().withTime;
+        this.render();
       } else if (kind === "refresh") {
+        this.readCustomInputs();
         this.load();
       } else if (kind === "empty") {
         state.reportShowEmpty = !state.reportShowEmpty;
         this.render();
       }
+    });
+    root.addEventListener("change", (event) => {
+      const select = event.target.closest?.("[data-report-viewer-zone]");
+      if (!select || !this.panel?.contains(select)) return;
+      this.readCustomInputs();
+      this.setViewerZone(select.value);
+      this.load();
     });
   }
 
@@ -80,6 +168,13 @@ export class ReportsView {
       this.render();
       return;
     }
+    const custom = state.reportPeriod === "custom" ? this.customPeriod() : null;
+    const invalid = custom ? validateCustomPeriod(custom) : "";
+    if (invalid) {
+      state.reportError = t(`reports.custom.${invalid}`);
+      this.render();
+      return;
+    }
     state.reportLoading = true;
     state.reportError = "";
     state.reportProgress = "";
@@ -88,6 +183,7 @@ export class ReportsView {
       const report = await this.dependencies.reportService.loadReport({
         accounts: state.accounts,
         period: state.reportPeriod,
+        custom: custom ? { ...custom } : null,
         zoneMode: state.reportZone,
         viewerZone: this.viewerZone(),
         nowMs: Date.now(),
@@ -143,14 +239,22 @@ export class ReportsView {
       : row.basis === "account-fallback"
         ? `<div class="ma-rep-note" title="${escapeHtml(t("reports.fallbackHint"))}">${escapeHtml(t("reports.fallback"))}</div>`
         : "";
+    const campaigns =
+      row.activeCampaigns === null || row.activeCampaigns === undefined
+        ? ""
+        : `<div class="ma-rep-camps"><i class="ma-rep-on${row.activeCampaigns ? "" : " is-zero"}" title="${escapeHtml(t("reports.activeHint"))}">${escapeHtml(
+            t("reports.active", { count: row.activeCampaigns }),
+          )}</i><i class="ma-rep-off" title="${escapeHtml(t("reports.inactiveHint"))}">${escapeHtml(
+            t("reports.inactive", { count: row.inactiveCampaigns }),
+          )}</i></div>`;
     const spendUsd =
       row.spendUsd === null && row.spend > 0 ? null : row.spendUsd;
     return `
-      <div class="ma-rep-row${row.spend > 0 ? "" : " ma-rep-zero"}">
+      <div class="ma-rep-row${row.spend > 0 || row.activeCampaigns > 0 ? "" : " ma-rep-zero"}">
         <div class="ma-rep-acct">
           <b title="${escapeHtml(row.name)}">${escapeHtml(row.name)}</b>
           <span>${escapeHtml(row.accountId)}${zone ? ` · ${escapeHtml(zone)}` : ""}</span>
-          ${note}
+          ${campaigns}${note}
         </div>
         <div class="ma-rep-num"><b>${row.error ? "—" : money(spendUsd)}</b>${original}</div>
         <div class="ma-rep-num"><b>${count(row.leads)}</b><small>${cost(row.spendUsd, row.leads)}</small></div>
@@ -167,10 +271,49 @@ export class ReportsView {
     if (!panel) return;
     const report = state.report;
     const viewerZone = this.viewerZone();
+    const custom = this.customPeriod();
+    const hours = (selected, last) =>
+      Array.from({ length: 24 }, (_, hour) => {
+        const label = `${String(hour).padStart(2, "0")}:${last ? "59" : "00"}`;
+        return `<option value="${hour}" ${hour === Number(selected) ? "selected" : ""}>${label}</option>`;
+      }).join("");
+    const customRow =
+      state.reportPeriod === "custom"
+        ? `<div class="ma-rep-custom">
+            <input type="date" data-report-input="since" value="${escapeHtml(custom.since)}" />
+            ${custom.withTime ? `<select data-report-input="sinceHour">${hours(custom.sinceHour, false)}</select>` : ""}
+            <span>—</span>
+            <input type="date" data-report-input="until" value="${escapeHtml(custom.until)}" />
+            ${custom.withTime ? `<select data-report-input="untilHour">${hours(custom.untilHour, true)}</select>` : ""}
+            <button type="button" class="ma-rep-time${custom.withTime ? " is-on" : ""}" data-always-enabled data-report="time" title="${escapeHtml(t("reports.custom.timeHint"))}">${escapeHtml(t("reports.custom.time"))}</button>
+            <button type="button" class="ma-primary ma-rep-apply" data-always-enabled data-report="apply" ${
+              state.reportLoading ? "disabled" : ""
+            }>${escapeHtml(t("reports.custom.apply"))}</button>
+          </div>`
+        : "";
+    const choices = reportZoneChoices();
+    const zoneLabel = (zone) =>
+      `${zone.replace(/^.*\//, "").replace(/_/g, " ")} (${formatUtcOffset(zoneOffsetMinutes(Date.now(), zone))})`;
+    const option = (zone, label) =>
+      `<option value="${escapeHtml(zone)}" ${zone === state.reportViewerZone ? "selected" : ""}>${escapeHtml(label)}</option>`;
+    const zoneSelect =
+      state.reportZone === "viewer"
+        ? `<label class="ma-rep-zonepick"><span>${escapeHtml(t("reports.zonePick"))}</span>
+            <select data-report-viewer-zone>
+              <option value="" ${state.reportViewerZone ? "" : "selected"}>${escapeHtml(
+                t("reports.zoneAuto", { zone: zoneLabel(this.browserZone()) }),
+              )}</option>
+              <optgroup label="${escapeHtml(t("reports.zoneCities"))}">${choices.cities
+                .map((zone) => option(zone, zoneLabel(zone)))
+                .join("")}</optgroup>
+              <optgroup label="${escapeHtml(t("reports.zoneOffsets"))}">${choices.offsets
+                .map((item) => option(item.zone, item.label))
+                .join("")}</optgroup>
+            </select></label>`
+        : "";
     const controls = `
       <div class="ma-rep-controls">
         ${this.segment("period", PERIODS, state.reportPeriod)}
-        ${this.segment("zone", ZONES, state.reportZone)}
         <button type="button" class="ma-secondary ma-rep-refresh" data-always-enabled data-report="refresh" ${
           state.reportLoading ? "disabled" : ""
         }>${ICONS.refresh}<span>${escapeHtml(
@@ -179,11 +322,21 @@ export class ReportsView {
             : t("reports.refresh"),
         )}</span></button>
       </div>
+      ${customRow}
+      <div class="ma-rep-controls">
+        ${this.segment("zone", ZONES, state.reportZone)}
+        ${zoneSelect}
+      </div>
       <div class="ma-rep-zonehint">${escapeHtml(
         state.reportZone === "viewer"
-          ? t("reports.zoneHint.viewer", { zone: viewerZone })
+          ? t("reports.zoneHint.viewer", { zone: zoneLabel(viewerZone) })
           : t("reports.zoneHint.account"),
-      )}</div>`;
+      )}</div>
+      ${
+        state.reportError && report
+          ? `<div class="ma-rep-warn">${escapeHtml(state.reportError)}</div>`
+          : ""
+      }`;
     if (state.reportError && !report) {
       panel.innerHTML = `${controls}<div class="ma-rep-empty">${escapeHtml(state.reportError)}</div>`;
       return;
@@ -195,7 +348,10 @@ export class ReportsView {
       return;
     }
     const total = report.total;
-    const spent = report.rows.filter((row) => row.spend > 0 || row.error);
+    // An account with campaigns switched on matters even before it spends.
+    const spent = report.rows.filter(
+      (row) => row.spend > 0 || row.error || row.activeCampaigns > 0,
+    );
     const idle = report.rows.length - spent.length;
     const visible = state.reportShowEmpty ? report.rows : spent;
     const tile = (label, value, sub = "") =>
@@ -205,7 +361,7 @@ export class ReportsView {
     panel.innerHTML = `
       ${controls}
       <div class="ma-rep-tiles${state.reportLoading ? " ma-rep-stale" : ""}">
-        ${tile(t("reports.spend"), money(total.spendUsd), t("reports.accountsSpending", { count: total.accounts }))}
+        ${tile(t("reports.spend"), money(total.spendUsd), `${t("reports.accountsSpending", { count: total.accounts })} · ${t("reports.activeTotal", { count: total.activeCampaigns })}`)}
         ${tile(t("reports.leads"), total.leadsKnown ? count(total.leads) : "—", total.leadsKnown ? `${t("reports.cpl")} ${cost(total.spendUsd, total.leads)}` : "")}
         ${tile(t("reports.purchases"), total.purchasesKnown ? count(total.purchases) : "—", total.purchasesKnown ? `${t("reports.cpa")} ${cost(total.spendUsd, total.purchases)}` : "")}
       </div>

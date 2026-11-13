@@ -655,6 +655,50 @@ export function buildLayoutStyles(appId) {
       ${A} .ma-rep-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 2px 0 8px; }
       ${A} .ma-rep-refresh { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; }
       ${A} .ma-rep-refresh .ma-ico { width: 15px; height: 15px; }
+      ${A} .ma-rep-custom { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 8px; }
+      ${A} .ma-rep-custom input[type="date"] {
+        height: 34px;
+        padding: 0 10px;
+        border: 1px solid #d9dce3;
+        border-radius: 10px;
+        background: #ffffff;
+        color: var(--ma-ink);
+        font: inherit;
+        font-size: 12px;
+      }
+      ${A} .ma-rep-custom input[type="date"],
+      ${A} .ma-rep-custom select { flex: 0 0 auto; width: auto; }
+      ${A} .ma-rep-custom select { height: 34px; padding: 0 8px; font-size: 12px; }
+      ${A} .ma-rep-custom > span { color: var(--ma-faint); }
+      ${A} .ma-rep-time {
+        height: 34px;
+        padding: 0 12px;
+        border: 1px solid #d9dce3;
+        border-radius: 999px;
+        background: #ffffff;
+        color: var(--ma-muted);
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      ${A} .ma-rep-time:hover { background: var(--ma-soft); color: var(--ma-ink); }
+      ${A} .ma-rep-time.is-on { border-color: #6dbb2a; background: #ecfbd6; color: var(--ma-lime-deep); }
+      ${A} button.ma-rep-apply { min-height: 34px; margin-left: auto; padding: 0 16px; font-size: 12px; }
+      ${A} .ma-rep-zonepick { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
+      ${A} .ma-rep-zonepick span { font-size: 12px; color: var(--ma-muted); white-space: nowrap; }
+      ${A} .ma-rep-zonepick select { flex: 0 0 auto; width: auto; }
+      ${A} .ma-rep-zonepick select { height: 34px; max-width: 230px; font-size: 12px; }
+      ${A} .ma-rep-camps { display: flex; gap: 6px; margin-top: 5px; }
+      ${A} .ma-rep-camps i {
+        padding: 1px 8px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-style: normal;
+        font-weight: 600;
+      }
+      ${A} .ma-rep-on { background: #dcf7c0; color: #1f6a10; }
+      ${A} .ma-rep-on.is-zero { background: #f1f2f5; color: var(--ma-faint); font-weight: 500; }
+      ${A} .ma-rep-off { background: #f1f2f5; color: var(--ma-muted); font-weight: 500; }
       ${A} .ma-rep-zonehint { margin: 0 0 14px; font-size: 12px; color: var(--ma-muted); }
       ${A} .ma-rep-tiles { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 8px; margin: 0 0 14px; }
       ${A} .ma-rep-tile { padding: 12px 14px; border-radius: 14px; background: var(--ma-soft); }

@@ -9,8 +9,12 @@ import {
   periodDates,
   summarizeInsights,
   toUsd,
+  countCampaigns,
+  periodBounds,
+  reportZoneChoices,
+  resolveWindow,
   totalReport,
-  viewerWindow,
+  validateCustomPeriod,
   zoneOffsetMinutes,
 } from "../src/domain/report-time.mjs";
 import { ReportService } from "../src/reports/report-service.mjs";
@@ -66,8 +70,11 @@ test("periods are whole days ending today", () => {
   });
 });
 
+const windowFor = (zone, accountZone, period = "today", custom = null) =>
+  resolveWindow({ period, custom, nowMs: NOW, zone, accountZone });
+
 test("the viewer's day maps onto two account dates", () => {
-  const bangkok = viewerWindow("today", NOW, KYIV, BANGKOK);
+  const bangkok = windowFor(KYIV, BANGKOK);
   assert.equal(bangkok.startMs, Date.UTC(2026, 10, 13, 22));
   assert.equal(bangkok.endMs, Date.UTC(2026, 10, 14, 22));
   // Kyiv's 14th runs 05:00 on the 14th to 05:00 on the 15th in Bangkok.
@@ -75,15 +82,95 @@ test("the viewer's day maps onto two account dates", () => {
     since: "2026-11-14",
     until: "2026-11-15",
   });
-  const la = viewerWindow("today", NOW, KYIV, LA);
-  assert.deepEqual(la.accountRange, {
+  assert.equal(bangkok.wholeAccountDays, false);
+  assert.deepEqual(windowFor(KYIV, LA).accountRange, {
     since: "2026-11-13",
     until: "2026-11-14",
   });
 });
 
+test("a period on the account's own clock is whole account days", () => {
+  const own = windowFor(BANGKOK, BANGKOK, "last7");
+  assert.equal(own.wholeAccountDays, true);
+  assert.deepEqual(own.accountRange, {
+    since: "2026-11-08",
+    until: "2026-11-14",
+  });
+  // Another zone with the same clock is just as good as the account's own.
+  assert.equal(windowFor("Asia/Ho_Chi_Minh", BANGKOK).wholeAccountDays, true);
+});
+
+test("a custom period is dates, optionally with whole hours", () => {
+  const dates = { since: "2026-11-13", until: "2026-11-14", withTime: false };
+  assert.deepEqual(periodBounds("custom", "2026-11-20", dates), {
+    since: { date: "2026-11-13", hour: 0 },
+    until: { date: "2026-11-15", hour: 0 },
+  });
+  // 13.11 00:00 – 14.11 23:59 is the same two full days.
+  const full = { ...dates, withTime: true, sinceHour: 0, untilHour: 23 };
+  assert.deepEqual(
+    periodBounds("custom", "2026-11-20", full),
+    periodBounds("custom", "2026-11-20", dates),
+  );
+  // 13.11 18:00 – 14.11 05:59 ends at 06:00.
+  const night = { ...dates, withTime: true, sinceHour: 18, untilHour: 5 };
+  assert.deepEqual(periodBounds("custom", "2026-11-20", night), {
+    since: { date: "2026-11-13", hour: 18 },
+    until: { date: "2026-11-14", hour: 6 },
+  });
+  const window = windowFor(BANGKOK, BANGKOK, "custom", night);
+  assert.equal(window.wholeAccountDays, false);
+  assert.equal(window.startMs, Date.UTC(2026, 10, 13, 11));
+  assert.equal(window.endMs, Date.UTC(2026, 10, 13, 23));
+  assert.equal(
+    windowFor(BANGKOK, BANGKOK, "custom", full).wholeAccountDays,
+    true,
+  );
+});
+
+test("custom periods are validated", () => {
+  const ok = { since: "2026-11-13", until: "2026-11-14", withTime: false };
+  assert.equal(validateCustomPeriod(ok), "");
+  assert.equal(validateCustomPeriod({ ...ok, since: "" }), "dates");
+  assert.equal(validateCustomPeriod({ ...ok, until: "2026-11-12" }), "order");
+  assert.equal(
+    validateCustomPeriod({
+      since: "2026-11-13",
+      until: "2026-11-13",
+      withTime: true,
+      sinceHour: 10,
+      untilHour: 9,
+    }),
+    "order",
+  );
+  assert.equal(validateCustomPeriod({ ...ok, since: "2026-01-01" }), "long");
+});
+
+test("campaigns are counted as on or off", () => {
+  assert.deepEqual(
+    countCampaigns([
+      { effective_status: "ACTIVE" },
+      { effective_status: "ACTIVE" },
+      { effective_status: "PAUSED" },
+      { effective_status: "WITH_ISSUES" },
+      { effective_status: "ARCHIVED" },
+      { effective_status: "DELETED" },
+    ]),
+    { active: 2, inactive: 2 },
+  );
+});
+
+test("time zone choices include Kyiv and fixed offsets with the right sign", () => {
+  const choices = reportZoneChoices();
+  assert.ok(choices.cities.includes("Europe/Kiev"));
+  const plus7 = choices.offsets.find((item) => item.label === "UTC+7");
+  assert.equal(zoneOffsetMinutes(NOW, plus7.zone), 420);
+  const minus5 = choices.offsets.find((item) => item.label === "UTC-5");
+  assert.equal(zoneOffsetMinutes(NOW, minus5.zone), -300);
+});
+
 test("hourly rows are cut by the viewer's day, not the account's", () => {
-  const { startMs, endMs } = viewerWindow("today", NOW, KYIV, BANGKOK);
+  const { startMs, endMs } = windowFor(KYIV, BANGKOK);
   const row = (date, hour, spend) => ({
     date_start: date,
     hourly_stats_aggregated_by_advertiser_time_zone: hourLabel(hour),
@@ -148,7 +235,13 @@ test("spend converts to USD with Meta's ratio", () => {
   assert.equal(total.purchases, 1);
 });
 
-function createService({ hourlyRows, dailyRows, meta, failFor = "" }) {
+function createService({
+  hourlyRows,
+  dailyRows,
+  meta,
+  failFor = "",
+  campaigns = {},
+}) {
   const calls = [];
   const service = new ReportService({
     graphClient: {
@@ -161,6 +254,10 @@ function createService({ hourlyRows, dailyRows, meta, failFor = "" }) {
       graphGetAll: async (path, query) => {
         calls.push({ path, hourly: Boolean(query.breakdowns), query });
         const id = path.split("/")[0].replace("act_", "");
+        if (path.endsWith("/campaigns")) {
+          if (campaigns === "fail") throw new Error("no campaigns access");
+          return campaigns[id] || [];
+        }
         return query.breakdowns ? hourlyRows[id] || [] : dailyRows[id] || [];
       },
     },
@@ -196,6 +293,13 @@ test("account mode asks each account for its own day", async () => {
       111: [{ spend: "20", actions: [{ action_type: "lead", value: "4" }] }],
       222: [{ spend: "90", actions: [] }],
     },
+    campaigns: {
+      111: [
+        { effective_status: "ACTIVE" },
+        { effective_status: "ACTIVE" },
+        { effective_status: "PAUSED" },
+      ],
+    },
   });
   const report = await service.loadReport({
     accounts: ACCOUNTS,
@@ -205,6 +309,19 @@ test("account mode asks each account for its own day", async () => {
     nowMs: NOW,
   });
   assert.equal(calls.filter((call) => call.hourly).length, 0);
+  assert.deepEqual(
+    report.rows.map((row) => [
+      row.name,
+      row.activeCampaigns,
+      row.inactiveCampaigns,
+    ]),
+    [
+      ["Kyiv", 0, 0],
+      ["Bangkok", 2, 1],
+      ["LA", 0, 0],
+    ],
+  );
+  assert.equal(report.total.activeCampaigns, 2);
   const range = (id) =>
     JSON.parse(
       calls.find((call) => call.path === `act_${id}/insights`).query.time_range,
@@ -266,6 +383,8 @@ test("viewer mode cuts hourly data and falls back when Meta withholds it", async
     calls.some((call) => call.path === "act_222/insights" && call.hourly),
     false,
   );
+  // Hourly rows that do carry actions keep their conversions.
+  assert.equal(byName.Bangkok.purchases, null);
   // LA: no hourly rows but daily spend exists, so the row is flagged.
   assert.equal(byName.LA.basis, "account-fallback");
   assert.equal(byName.LA.spend, 30);
@@ -278,6 +397,7 @@ test("one failing account does not break the report", async () => {
     hourlyRows: {},
     dailyRows: { 111: [{ spend: "5" }] },
     failFor: "222",
+    campaigns: "fail",
   });
   const report = await service.loadReport({
     accounts: ACCOUNTS,
@@ -289,4 +409,62 @@ test("one failing account does not break the report", async () => {
   const failed = report.rows.find((row) => row.name === "Kyiv");
   assert.match(failed.error, /Permission Denied/);
   assert.equal(report.total.spendUsd, 5);
+  // Campaigns that cannot be read are unknown, not zero.
+  assert.equal(failed.activeCampaigns, null);
+});
+
+test("a custom period with hours cuts hourly data on the account's clock", async () => {
+  const { service, calls } = createService({
+    meta: META,
+    hourlyRows: {
+      111: [
+        {
+          date_start: "2026-11-13",
+          hourly_stats_aggregated_by_advertiser_time_zone: hourLabel(17),
+          spend: "100",
+        },
+        {
+          date_start: "2026-11-13",
+          hourly_stats_aggregated_by_advertiser_time_zone: hourLabel(18),
+          spend: "4",
+          actions: [{ action_type: "lead", value: "2" }],
+        },
+        {
+          date_start: "2026-11-14",
+          hourly_stats_aggregated_by_advertiser_time_zone: hourLabel(5),
+          spend: "6",
+          actions: [{ action_type: "lead", value: "1" }],
+        },
+        {
+          date_start: "2026-11-14",
+          hourly_stats_aggregated_by_advertiser_time_zone: hourLabel(6),
+          spend: "100",
+        },
+      ],
+    },
+    dailyRows: {},
+  });
+  const report = await service.loadReport({
+    accounts: [ACCOUNTS[0]],
+    period: "custom",
+    custom: {
+      since: "2026-11-13",
+      until: "2026-11-14",
+      withTime: true,
+      sinceHour: 18,
+      untilHour: 5,
+    },
+    zoneMode: "account",
+    viewerZone: KYIV,
+    nowMs: NOW,
+  });
+  const [row] = report.rows;
+  assert.equal(row.spend, 10);
+  assert.equal(row.leads, 3);
+  assert.equal(row.basis, "account");
+  const hourlyCall = calls.find((call) => call.hourly);
+  assert.deepEqual(JSON.parse(hourlyCall.query.time_range), {
+    since: "2026-11-13",
+    until: "2026-11-14",
+  });
 });

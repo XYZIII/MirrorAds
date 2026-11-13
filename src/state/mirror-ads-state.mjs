@@ -87,6 +87,9 @@ export class MirrorAdsState {
     this.reportProgress = "";
     this.reportError = "";
     this.reportShowEmpty = false;
+    // null: not read from storage yet; "": follow the browser.
+    this.reportViewerZone = null;
+    this.reportCustom = null;
     this.activeTab = "clone";
     // The source block starts expanded: the operator picks files there.
     this.cloneSourceCollapsed = false;

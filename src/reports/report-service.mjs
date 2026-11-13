@@ -1,13 +1,12 @@
 import { normalizeAccountId } from "../domain/ids.mjs";
 import {
-  dateInZone,
+  countCampaigns,
   filterHourlyRows,
   isKnownTimeZone,
-  periodDates,
+  resolveWindow,
   summarizeInsights,
   toUsd,
   totalReport,
-  viewerWindow,
   zoneOffsetMinutes,
 } from "../domain/report-time.mjs";
 
@@ -57,30 +56,51 @@ export class ReportService {
     });
   }
 
-  /** One account's line. `basis` says whose day the numbers are counted in. */
-  async loadAccountRow(account, { period, zoneMode, viewerZone, nowMs }) {
+  /** Campaigns switched on and off right now; null when they cannot be read. */
+  async loadCampaignCounts(accountId) {
+    const { graphGetAll } = this.dependencies.graphClient;
+    try {
+      return countCampaigns(
+        await graphGetAll(`act_${accountId}/campaigns`, {
+          fields: "effective_status",
+          limit: 500,
+        }),
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * One account's line. `basis` says whose clock the period was read on:
+   * "viewer", "account", or "account-fallback" when the viewer's clock was
+   * asked for but Meta gave no hourly data, so whole account days are shown.
+   */
+  async loadAccountRow(
+    account,
+    { period, custom, zoneMode, viewerZone, nowMs },
+  ) {
     const accountId = normalizeAccountId(account.id);
     const base = { accountId, name: account.name || accountId };
+    const campaignsPromise = this.loadCampaignCounts(accountId);
     try {
       const meta = await this.loadAccountMeta(accountId);
-      const accountRange = periodDates(
+      const window = resolveWindow({
         period,
-        dateInZone(nowMs, meta.timeZone),
-      );
-      let basis = "account";
+        custom,
+        nowMs,
+        zone: zoneMode === "viewer" ? viewerZone : meta.timeZone,
+        accountZone: meta.timeZone,
+      });
+      let basis = zoneMode === "viewer" ? "viewer" : "account";
       let summary = null;
-      const sameClock =
-        zoneOffsetMinutes(nowMs, meta.timeZone) ===
-        zoneOffsetMinutes(nowMs, viewerZone);
-      if (zoneMode === "viewer" && !sameClock) {
-        const window = viewerWindow(period, nowMs, viewerZone, meta.timeZone);
+      if (!window.wholeAccountDays) {
         const hourly = await this.fetchInsights(
           accountId,
           window.accountRange,
           true,
         );
         if (hourly.length) {
-          basis = "viewer";
           summary = summarizeInsights(
             filterHourlyRows(
               hourly,
@@ -89,22 +109,19 @@ export class ReportService {
               window.endMs,
             ),
           );
-        } else {
-          // No hourly rows: either nothing was spent, or Meta withholds the
-          // hourly breakdown for this account. The daily numbers tell which.
-          basis = "account-fallback";
         }
-      } else if (zoneMode === "viewer") {
-        basis = "viewer";
       }
       if (!summary) {
         summary = summarizeInsights(
-          await this.fetchInsights(accountId, accountRange, false),
+          await this.fetchInsights(accountId, window.accountRange, false),
         );
-        if (basis === "account-fallback" && summary.spend === 0) {
-          basis = "viewer";
+        // No hourly rows although money was spent: Meta withholds the hourly
+        // breakdown for this account, so these are whole account days.
+        if (!window.wholeAccountDays && summary.spend > 0) {
+          basis = "account-fallback";
         }
       }
+      const campaigns = await campaignsPromise;
       return {
         ...base,
         ...summary,
@@ -113,9 +130,12 @@ export class ReportService {
         timeZone: meta.timeZone,
         offsetMinutes: zoneOffsetMinutes(nowMs, meta.timeZone),
         spendUsd: toUsd(summary.spend, meta.currency, meta.ratio),
+        activeCampaigns: campaigns ? campaigns.active : null,
+        inactiveCampaigns: campaigns ? campaigns.inactive : null,
         error: "",
       };
     } catch (error) {
+      const campaigns = await campaignsPromise;
       return {
         ...base,
         spend: 0,
@@ -126,6 +146,8 @@ export class ReportService {
         currency: "",
         timeZone: "",
         offsetMinutes: null,
+        activeCampaigns: campaigns ? campaigns.active : null,
+        inactiveCampaigns: campaigns ? campaigns.inactive : null,
         error: String(error?.message || error),
       };
     }
@@ -136,10 +158,18 @@ export class ReportService {
    * `zoneMode` is "account" (each account's own day) or "viewer" (one day for
    * all, cut from hourly data by the viewer's time zone).
    */
-  async loadReport({ accounts, period, zoneMode, viewerZone, nowMs, onRow }) {
+  async loadReport({
+    accounts,
+    period,
+    custom,
+    zoneMode,
+    viewerZone,
+    nowMs,
+    onRow,
+  }) {
     const queue = [...(accounts || [])];
     const rows = [];
-    const options = { period, zoneMode, viewerZone, nowMs };
+    const options = { period, custom, zoneMode, viewerZone, nowMs };
     const worker = async () => {
       while (queue.length) {
         const account = queue.shift();

@@ -8,7 +8,7 @@
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export const REPORT_PERIODS = ["today", "yesterday", "last7"];
+export const REPORT_PERIODS = ["today", "yesterday", "last7", "custom"];
 
 export function addDays(date, days) {
   const [year, month, day] = String(date).split("-").map(Number);
@@ -104,22 +104,74 @@ export function periodDates(period, today) {
   return { since: today, until: today };
 }
 
+/** A custom period is usable: real dates in order, at most `maxDays` long. */
+export function validateCustomPeriod(custom, maxDays = 62) {
+  const isDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
+  if (!isDate(custom?.since) || !isDate(custom?.until)) return "dates";
+  const start =
+    Date.parse(`${custom.since}T00:00:00Z`) +
+    (custom.withTime ? Number(custom.sinceHour) || 0 : 0) * 3600000;
+  const end =
+    Date.parse(`${custom.until}T00:00:00Z`) +
+    (custom.withTime ? (Number(custom.untilHour) || 0) + 1 : 24) * 3600000;
+  if (!(end > start)) return "order";
+  if (end - start > maxDays * DAY_MS) return "long";
+  return "";
+}
+
 /**
- * The viewer's period as a UTC window, and the account dates that cover it.
- * Hourly rows for `accountRange` are then cut to `[startMs, endMs)`.
+ * A period as wall-clock bounds: the first hour included and the first hour
+ * after the end. Presets are whole days ending on `today`; a custom period is
+ * a date range, optionally with hours ("13.11 00:00 – 14.11 23:59" is hours
+ * 0 through 23, so it ends at 00:00 on the 15th).
  */
-export function viewerWindow(period, nowMs, viewerZone, accountZone) {
-  const dates = periodDates(period, dateInZone(nowMs, viewerZone));
-  const startMs = localHourToUtcMs(dates.since, 0, viewerZone);
-  const endMs = localHourToUtcMs(addDays(dates.until, 1), 0, viewerZone);
+export function periodBounds(period, today, custom) {
+  if (period === "custom" && custom) {
+    if (custom.withTime) {
+      const lastHour = Math.min(23, Math.max(0, Number(custom.untilHour) || 0));
+      return {
+        since: {
+          date: custom.since,
+          hour: Math.min(23, Math.max(0, Number(custom.sinceHour) || 0)),
+        },
+        until:
+          lastHour === 23
+            ? { date: addDays(custom.until, 1), hour: 0 }
+            : { date: custom.until, hour: lastHour + 1 },
+      };
+    }
+    return {
+      since: { date: custom.since, hour: 0 },
+      until: { date: addDays(custom.until, 1), hour: 0 },
+    };
+  }
+  const dates = periodDates(period, today);
   return {
-    startMs,
-    endMs,
-    accountRange: {
-      since: dateInZone(startMs, accountZone),
-      until: dateInZone(endMs - 1, accountZone),
-    },
+    since: { date: dates.since, hour: 0 },
+    until: { date: addDays(dates.until, 1), hour: 0 },
   };
+}
+
+/**
+ * A period read on the clock of `zone`, as a UTC window plus the account
+ * dates that cover it.
+ *
+ * `wholeAccountDays` is true when the window is exactly a run of the
+ * account's own days: then Meta's daily numbers are already the answer.
+ * Otherwise hourly rows for `accountRange` are cut to `[startMs, endMs)`.
+ */
+export function resolveWindow({ period, custom, nowMs, zone, accountZone }) {
+  const bounds = periodBounds(period, dateInZone(nowMs, zone), custom);
+  const startMs = localHourToUtcMs(bounds.since.date, bounds.since.hour, zone);
+  const endMs = localHourToUtcMs(bounds.until.date, bounds.until.hour, zone);
+  const accountRange = {
+    since: dateInZone(startMs, accountZone),
+    until: dateInZone(endMs - 1, accountZone),
+  };
+  const wholeAccountDays =
+    startMs === localHourToUtcMs(accountRange.since, 0, accountZone) &&
+    endMs === localHourToUtcMs(addDays(accountRange.until, 1), 0, accountZone);
+  return { startMs, endMs, accountRange, wholeAccountDays };
 }
 
 /** "13:00:00 - 13:59:59" -> 13. */
@@ -206,8 +258,10 @@ export function totalReport(rows) {
     unconverted: 0,
     leadsKnown: false,
     purchasesKnown: false,
+    activeCampaigns: 0,
   };
   for (const row of rows || []) {
+    total.activeCampaigns += Number(row.activeCampaigns) || 0;
     if (row.error) continue;
     if (row.spendUsd === null) {
       if (row.spend > 0) total.unconverted += 1;
@@ -225,4 +279,50 @@ export function totalReport(rows) {
     }
   }
   return total;
+}
+
+/** Campaigns that are switched on versus everything else that still exists. */
+export function countCampaigns(campaigns) {
+  let active = 0;
+  let inactive = 0;
+  for (const campaign of campaigns || []) {
+    const status = String(campaign?.effective_status || "").toUpperCase();
+    if (status === "DELETED" || status === "ARCHIVED") continue;
+    if (status === "ACTIVE") active += 1;
+    else inactive += 1;
+  }
+  return { active, inactive };
+}
+
+/** Time zones offered for "My time": common cities, then fixed offsets. */
+export function reportZoneChoices() {
+  const cities = [
+    "Europe/Kiev",
+    "Europe/Warsaw",
+    "Europe/London",
+    "Europe/Berlin",
+    "Europe/Moscow",
+    "Asia/Dubai",
+    "Asia/Almaty",
+    "Asia/Bangkok",
+    "Asia/Ho_Chi_Minh",
+    "Asia/Singapore",
+    "Asia/Hong_Kong",
+    "Asia/Tokyo",
+    "Australia/Sydney",
+    "America/Sao_Paulo",
+    "America/New_York",
+    "America/Chicago",
+    "America/Denver",
+    "America/Los_Angeles",
+  ].filter(isKnownTimeZone);
+  const offsets = [];
+  for (let hours = -12; hours <= 14; hours += 1) {
+    // Etc/GMT signs are inverted: Etc/GMT-7 is UTC+7.
+    const zone =
+      hours === 0 ? "UTC" : `Etc/GMT${hours > 0 ? "-" : "+"}${Math.abs(hours)}`;
+    if (isKnownTimeZone(zone))
+      offsets.push({ zone, label: formatUtcOffset(hours * 60) });
+  }
+  return { cities, offsets };
 }
