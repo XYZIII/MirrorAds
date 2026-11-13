@@ -1,0 +1,103 @@
+import { DEFAULT_NAME_TEMPLATE } from "../domain/name-template.mjs";
+
+export class MirrorAdsState {
+  constructor() {
+    this.token = "";
+    this.privateTokens = null;
+    this.sessionReady = false;
+    this.loadingSession = false;
+    this.busy = false;
+    this.busyDepth = 0;
+    this.operationActive = false;
+    this.lastOperationReport = null;
+    this.operationReport = null;
+    this.operationCancelled = false;
+    this.logs = [];
+    this.networkDiagnostics = [];
+    this.accounts = [];
+    this.pages = [];
+    this.importAccountPixels = [];
+    this.importTargetCatalogs = [];
+    this.importTargetBusiness = null;
+    this.accountCampaignsCache = {};
+    this.accountContextCache = {};
+    this.accessiblePagesCache = null;
+    this.exportAccountId = "";
+    this.importAccountId = "";
+    this.exportCampaigns = [];
+    this.exportCampaignId = "";
+    this.importPackage = null;
+    this.importMediaFiles = new Map();
+    this.importMediaOverrides = new Map();
+    this.importMediaHashes = new Map();
+    this.importPageMappings = {};
+    this.importPixelMappings = {};
+    this.importCatalogMappings = {};
+    this.importCampaignName = "";
+    this.importAsDraft = true;
+    this.importStatus = "PAUSED";
+    this.importPreserveSchedule = false;
+    this.cloneSourceAccountId = "";
+    this.cloneSourceCampaignId = "";
+    this.cloneSourceCampaigns = [];
+    // Export tab preview: the package stats shown before the files are written.
+    this.exportPreview = null;
+    this.exportPreviewKey = "";
+    this.exportPreviewLoading = false;
+    this.cloneSourceKind = "campaign";
+    this.cloneJsonFileName = "";
+    this.cloneMediaFiles = new Map();
+    this.cloneMediaOverrides = new Map();
+    this.cloneMediaHashes = new Map();
+    this.cloneTargetAccountId = "";
+    this.clonePackage = null;
+    this.clonePackageLoading = false;
+    this.clonePages = [];
+    this.cloneTargetPixels = [];
+    this.cloneSourceCatalogs = [];
+    this.cloneSourceBusiness = null;
+    this.cloneTargetCatalogs = [];
+    this.cloneTargetBusiness = null;
+    this.clonePageMappings = {};
+    this.clonePixelMappings = {};
+    this.cloneCatalogMappings = {};
+    this.cloneManualSourceCatalogId = "";
+    this.cloneCampaignName = "";
+    this.cloneAsDraft = true;
+    this.cloneStatus = "PAUSED";
+    this.massTargets = {};
+    this.massPixels = {};
+    this.massMode = "DRAFT";
+    this.massNameTemplate = DEFAULT_NAME_TEMPLATE;
+    this.massRateOverride = "";
+    this.massCurrencyNote = "";
+    this.cloneCurrencyRate = 1;
+    this.cloneCurrency = "";
+    this.massRunning = false;
+    this.massStop = false;
+    // Set while a stop request is being honoured: the UI unlocks immediately
+    // even though the workflow is still cleaning up the current account.
+    this.massStopping = false;
+    this.refreshAfterRun = false;
+    this.massResults = [];
+    this.activeTab = "clone";
+    // The source block starts expanded: the operator picks files there.
+    this.cloneSourceCollapsed = false;
+    this.massRates = {};
+    this.massAutoRates = {};
+    this.massSearch = "";
+    this.logDockOpen = false;
+    this.massSequence = 0;
+    this.clonePreviewOpen = false;
+    this.massActiveAccountId = "";
+    this.pageIdentityHints = null;
+    this.pageIdentityProvisionCache = new Map();
+    this.pageBackedThreadsProvisionCache = new Map();
+    this.lastDraftIdentityRepair = null;
+    this.graphTemplateAccountId = "";
+    this.graphTemplateParams = null;
+    this.tempIdCursor = null;
+    this.reloadTimer = null;
+    this.uiReady = false;
+  }
+}

@@ -1,0 +1,503 @@
+/** Panel translations. English is the default; the choice is persisted. */
+
+const LANG_KEY = "mirrorads.panel.lang";
+
+const DICT = {
+  en: {
+    "lang.ru": "Русский",
+    "lang.en": "English",
+    ver: "build {version}",
+    "btn.service": "Service",
+    "btn.log": "Log panel",
+    "btn.refresh": "Reload the interface",
+    "refresh.busy":
+      "Stopping the run first; the interface reloads after the current account.",
+    "refresh.confirm":
+      "A clone is still running. Stop it and reload the interface?",
+    "btn.close": "Close",
+    "btn.minimize": "Collapse",
+    "btn.restore": "Open MirrorAds",
+    "clone.search": "Search by name or ID",
+    "menu.clearDrafts": "Clear Drafts",
+    "menu.prevVersion": "Load previous version",
+    "tab.export": "Export",
+    "tab.import": "Import",
+    "tab.clone": "Clone",
+
+    "field.account": "Ad account",
+    "field.copies": "Copies",
+    "media.statusMissing": "missing",
+    "media.statusOptional": "optional",
+    "media.colCreative": "creative",
+    "media.colSlot": "slot",
+    "media.colExpected": "expected file",
+    "media.colStatus": "status",
+    "media.colFile": "file",
+    "media.count": "{total} slots · {matched} files",
+    "media.countMissing": "{total} slots · {matched} files · missing {missing}",
+    "media.empty": "This package has no media slots.",
+    "media.none": "not selected",
+    "media.title": "Creatives and media",
+    "media.drop": "Drop creative files or choose them",
+    "media.hint":
+      "jpg / png / mp4 · names as exported · one file may cover many slots",
+    "source.campaign": "Ads Manager campaign",
+    "source.json": "JSON file",
+    "source.jsonPick": "Drop a JSON file or choose one",
+    "source.jsonHint": "campaign · adSets · ads · creatives · media · catalogs",
+    "source.jsonLoaded": "Loaded file",
+    "field.sourceAccount": "Source ad account",
+    "field.campaign": "Campaign",
+    "field.sourceCampaign": "Source campaign",
+    "field.campaignName": "Campaign name",
+    "field.template": "Campaign name template",
+    "field.importMode": "Import mode",
+    "field.mode": "Clone mode",
+    "field.fanPage": "Facebook page",
+    "field.pixel": "Pixel",
+    "field.catalog": "Catalog",
+    "field.currency": "Currency",
+    "field.type": "Type",
+    "field.file": "File",
+    "field.kind": "Type",
+    "field.size": "Size",
+    "field.budget": "Budget",
+    "field.risk": "Risk",
+
+    "clone.s1": "Source",
+    "clone.s2": "Ad accounts",
+    "clone.selectAll": "Select all",
+    "clone.s2note": "active accounts only",
+    "clone.s3": "3 · Mapping preview",
+    "clone.s3note": "nothing is created",
+    "clone.s4": "Run",
+    "clone.s4note": "sequential, one account at a time",
+    "clone.hint":
+      "Switch on the accounts to clone into. A failed account is rolled back and the rest continue.",
+    "log.empty": "The operation log will appear here after the first run.",
+    "clone.collapse": "Collapse or expand the source block",
+    "clone.loading": "Loading the source campaign package...",
+    "clone.mediaSummary": "Source media ({count})",
+    "clone.mappings": "Page, pixel and catalog mapping",
+    "clone.targetsHint": "{n} of {total} accounts selected",
+    "clone.targetsNone": "No active ad accounts found.",
+
+    "stat.adsets": "ad sets",
+    "stat.ads": "ads",
+    "stat.creatives": "creatives",
+    "stat.media": "media",
+    "stat.budget": "daily budget",
+    "stat.catalogs": "catalogs",
+    "stat.valueRules": "value rules",
+    "stat.valueRulesHint":
+      "The rule set is reused in a target account that already has the same rules, otherwise created there.",
+    "stat.none": "none",
+    "catalog.confirmTitle": "Copy the catalog products into this account?",
+    "catalog.confirmNew": "a new catalog will be created",
+    "catalog.confirmExisting": "added to this existing catalog",
+    "catalog.confirmNote":
+      "The ads show products from a catalog, and the target account's catalog does not have them yet. OK copies the products, feeds and product sets; nothing already in the catalog is changed. Cancel stops the clone for this account.",
+    "field.newName": "New campaign name",
+    "field.newNameHint":
+      "Filled in automatically. Type to set this account's name by hand; macros work here too.",
+    "field.newNameReset": "Back to the automatic name",
+
+    "btn.export": "Export",
+    "btn.import": "Import",
+    "btn.clone": "Clone",
+    "btn.preview": "Preview mappings",
+    "btn.stop": "Stop",
+    "btn.retry": "Retry failed",
+    "btn.retryN": "Retry {n} failed",
+    "btn.reset": "Reset",
+
+    "opt.reuseExisting": "Reuse existing pixel",
+    "opt.noPixel": "Auto",
+    "opt.noPixelHint": "Reuse the existing pixel or create a new one",
+    "opt.noCatalog": "Auto",
+    "opt.noCatalogHint":
+      "Auto: the same catalog when this cabinet can see it. Otherwise a copy is created in its Business Manager. Otherwise the products are copied into the first catalog the cabinet already has.",
+    "opt.noCatalogs": "No catalogs",
+    "opt.noCatalogsHint":
+      "This cabinet has no catalogs and no Business Manager to create one, so a catalog campaign cannot be cloned here.",
+    "opt.copyCatalog": "Copy to BM {bm}",
+    "opt.copyInto": "Copy data into: {name}",
+    "opt.catalogReuseGroup": "Use a catalog",
+    "opt.catalogCopyGroup": "Copy the source data into…",
+    "opt.autoPage": "Auto (page from source)",
+    "opt.autoPageShort": "Auto",
+    "currency.tooltip":
+      "Currency differs from the source ({from} → {to}). The budget is converted at {rate}.",
+    "currency.same": "Same currency as the source ({cur}): no conversion.",
+    "opt.notSelected": "Not selected",
+    "opt.createPixel": "Create a new pixel",
+
+    "chip.bm": "BM · {biz}",
+    "chip.source": "source",
+    "chip.personal": "personal",
+    "currency.auto": "auto rate",
+    "currency.convert": "{cur} · rate {rate}",
+
+    "run.progress": "progress",
+    "run.done": "done",
+    "run.rolled": "rolled back",
+    "run.queued": "queued",
+    "run.current": "current",
+    "run.running": "running…",
+    "run.hint": "Stop finishes the current account; nothing else is touched.",
+
+    "job.queued": "queued",
+    "job.running": "cloning…",
+    "job.success": "cloned",
+    "job.failed": "failed · rolled back",
+    "job.skipped": "skipped",
+    "job.cancelled": "cancelled",
+
+    "export.hint": "Export saves the campaign JSON and its media files.",
+    "export.loading": "Loading the campaign package…",
+    "import.hint": "Import recreates the campaign in the selected account.",
+    "import.json": "Export JSON file",
+
+    "macros.title": "Name macros",
+    "macros.hint": "Use them in the campaign name template:",
+    "macros.auto":
+      "source name with the account marker (id, its first 4 digits or the account label) replaced by the full id of the target account (default)",
+    "macros.id4": "first 4 digits of the target account id",
+    "macros.parts": "parts of the source name split by _ (1st, 3rd, the rest)",
+    "macros.source": "source campaign name",
+    "macros.account": "target account name",
+    "macros.accountId": "target account id",
+    "macros.currency": "target account currency",
+    "macros.mode": "clone mode (DRAFT / PAUSED / ACTIVE)",
+    "macros.index": "global campaign copy number (1, 2, 3 …)",
+    "macros.date": "today, YYYY-MM-DD",
+
+    "risk.noBm": "no BM",
+    "risk.noPage": "page missing",
+    "risk.ok": "ready",
+
+    "logs.title": "Log",
+    "logs.download": "Download log",
+    "logs.dockEmpty": "Nothing logged yet.",
+    "report.kind.export": "Export",
+    "report.kind.import": "Import",
+    "report.kind.clone": "Clone",
+    "report.status.success": "completed",
+    "report.status.partial": "partially completed",
+    "report.status.failed": "failed",
+    "report.status.cancelled": "cancelled",
+    "report.status.needs_review": "needs verification",
+    "report.account": "account {id}",
+    "report.details": "Details and remaining objects",
+    "report.download": "Download report",
+    "report.reload": "Open in Ads Manager",
+    "report.ok": "OK",
+    "report.close": "Close",
+    "report.mass.title": "Mass clone",
+    "report.mass.counters":
+      "cloned {cloned} · failed {failed} · skipped {skipped}",
+    "targets.noPayment":
+      "{n} cabinet(s) hidden: no payment method, Meta refuses ads there",
+    "rate.manual": "rate",
+    "rate.autoHint": "Meta rate: {rate}",
+    "currency.none": "нет курса",
+    "status.loading": "Looking for access_token…",
+    "status.ready": "Session ready",
+    "status.missing": "Session not loaded",
+    "status.busy": "operation in progress",
+  },
+
+  ru: {
+    "lang.ru": "Русский",
+    "lang.en": "English",
+    ver: "сборка {version}",
+    "btn.service": "Сервис",
+    "btn.log": "Панель лога",
+    "btn.refresh": "Перезагрузить интерфейс",
+    "refresh.busy":
+      "Сначала останавливаем прогон — интерфейс перезагрузится после текущего кабинета.",
+    "refresh.confirm":
+      "Клонирование ещё идёт. Остановить его и перезагрузить интерфейс?",
+    "btn.close": "Закрыть",
+    "btn.minimize": "Свернуть",
+    "btn.restore": "Открыть MirrorAds",
+    "clone.search": "Поиск по имени или ID",
+    "menu.clearDrafts": "Очистить драфты",
+    "menu.prevVersion": "Загрузить предыдущую версию",
+    "tab.export": "Экспорт",
+    "tab.import": "Импорт",
+    "tab.clone": "Клон",
+
+    "field.account": "Рекламный кабинет",
+    "field.copies": "Копий",
+    "media.statusMissing": "не хватает",
+    "media.statusOptional": "необязательно",
+    "media.colCreative": "креатив",
+    "media.colSlot": "слот",
+    "media.colExpected": "ожидаемый файл",
+    "media.colStatus": "статус",
+    "media.colFile": "файл",
+    "media.count": "{total} слотов · {matched} файлов",
+    "media.countMissing":
+      "{total} слотов · {matched} файлов · не хватает {missing}",
+    "media.empty": "В этом пакете нет слотов медиа.",
+    "media.none": "не выбран",
+    "media.title": "Креативы и медиа",
+    "media.drop": "Перетащите файлы креативов или выберите их",
+    "media.hint":
+      "jpg / png / mp4 · имена как при экспорте · один файл может закрыть несколько слотов",
+    "source.campaign": "Кампания в Ads Manager",
+    "source.json": "JSON-файл",
+    "source.jsonPick": "Перетащите JSON или выберите файл",
+    "source.jsonHint": "campaign · adSets · ads · creatives · media · catalogs",
+    "source.jsonLoaded": "Загружен файл",
+    "field.sourceAccount": "Кабинет-источник",
+    "field.campaign": "Кампания",
+    "field.sourceCampaign": "Кампания-источник",
+    "field.campaignName": "Название кампании",
+    "field.template": "Шаблон названия кампании",
+    "field.importMode": "Режим импорта",
+    "field.mode": "Режим клона",
+    "field.fanPage": "Страница Facebook",
+    "field.pixel": "Пиксель",
+    "field.catalog": "Каталог",
+    "field.currency": "Валюта",
+    "field.type": "Тип",
+    "field.file": "Файл",
+    "field.kind": "Тип",
+    "field.size": "Размер",
+    "field.budget": "Бюджет",
+    "field.risk": "Риск",
+
+    "clone.s1": "Источник",
+    "clone.s2": "Кабинеты",
+    "clone.selectAll": "Выбрать все",
+    "clone.s2note": "только активные кабинеты",
+    "clone.s3": "3 · Предпросмотр маппингов",
+    "clone.s3note": "ничего не создаётся",
+    "clone.s4": "Выполнение",
+    "clone.s4note": "последовательно, по одному кабинету",
+    "clone.hint":
+      "Включите кабинеты, в которые клонировать. Упавший кабинет откатывается, остальные продолжаются.",
+    "clone.mediaSummary": "Медиа источника ({count})",
+    "clone.mappings": "Маппинг страниц, пикселей и каталогов",
+    "clone.targetsHint": "выбрано {n} из {total} кабинетов",
+    "clone.targetsNone": "Активных рекламных кабинетов не найдено.",
+
+    "stat.adsets": "адсетов",
+    "stat.ads": "объявлений",
+    "stat.creatives": "креативов",
+    "stat.media": "медиа",
+    "stat.budget": "дневной бюджет",
+    "stat.catalogs": "каталогов",
+    "stat.valueRules": "value rules",
+    "stat.valueRulesHint":
+      "Если в целевом кабинете уже есть набор с такими же правилами, берётся он, иначе создаётся копия.",
+    "stat.none": "нет",
+    "catalog.confirmTitle": "Скопировать товары каталога в этот кабинет?",
+    "catalog.confirmNew": "будет создан новый каталог",
+    "catalog.confirmExisting": "добавим в этот существующий каталог",
+    "catalog.confirmNote":
+      "Объявления показывают товары из каталога, а в каталоге целевого кабинета их ещё нет. ОК скопирует товары, фиды и наборы товаров; то, что уже есть в каталоге, не меняется. Отмена остановит клон для этого кабинета.",
+    "field.newName": "Название кампании",
+    "field.newNameHint":
+      "Подставляется автоматически. Можно вписать своё название для этого кабинета; макросы тоже работают.",
+    "field.newNameReset": "Вернуть автоматическое название",
+
+    "btn.export": "Экспорт",
+    "btn.import": "Импорт",
+    "btn.clone": "Клонировать",
+    "btn.preview": "Сопоставления",
+    "btn.stop": "Стоп",
+    "btn.retry": "Повторить упавшие",
+    "btn.retryN": "Повторить упавшие ({n})",
+    "btn.reset": "Сбросить",
+
+    "opt.reuseExisting": "Переиспользовать пиксель",
+    "opt.noPixel": "Авто",
+    "opt.noPixelHint":
+      "Переиспользовать существующий пиксель или создать новый",
+    "opt.noCatalog": "Авто",
+    "opt.noCatalogHint":
+      "Авто: тот же каталог, если кабинет его видит. Иначе создаётся копия в его Business Manager. Иначе товары копируются в первый доступный каталог кабинета.",
+    "opt.noCatalogs": "Нет каталогов",
+    "opt.noCatalogsHint":
+      "В кабинете нет каталогов и нет Business Manager, где можно создать каталог, поэтому кампанию с каталогом сюда не перенести.",
+    "opt.copyCatalog": "Копировать в BM {bm}",
+    "opt.copyInto": "Копировать данные в: {name}",
+    "opt.catalogReuseGroup": "Использовать каталог",
+    "opt.catalogCopyGroup": "Скопировать данные источника в…",
+    "opt.autoPage": "Авто (страница из источника)",
+    "opt.autoPageShort": "Авто",
+    "currency.tooltip":
+      "Валюта отличается от источника ({from} → {to}). Бюджет будет пересчитан по курсу {rate}.",
+    "currency.same":
+      "Валюта совпадает с источником ({cur}): пересчёта не будет.",
+    "log.empty": "Журнал операций появится здесь после первого запуска.",
+    "clone.collapse": "Свернуть или развернуть блок источника",
+    "clone.loading": "Загружаем пакет кампании-источника...",
+    "opt.notSelected": "Не выбрано",
+    "opt.createPixel": "Создать новый пиксель",
+
+    "chip.bm": "БМ · {biz}",
+    "chip.source": "источник",
+    "chip.personal": "личный",
+    "currency.auto": "курс автоматически",
+    "currency.convert": "{cur} · курс {rate}",
+
+    "run.progress": "прогресс",
+    "run.done": "готово",
+    "run.rolled": "откатано",
+    "run.queued": "в очереди",
+    "run.current": "текущий",
+    "run.running": "выполняется…",
+    "run.hint": "Стоп завершит текущий кабинет, остальные не тронет.",
+
+    "job.queued": "в очереди",
+    "job.running": "клонируется…",
+    "job.success": "готово",
+    "job.failed": "ошибка · откатано",
+    "job.skipped": "пропущен",
+    "job.cancelled": "отменён",
+
+    "export.hint": "Экспорт сохраняет JSON кампании и её медиафайлы.",
+    "export.loading": "Загружаем пакет кампании…",
+    "import.hint": "Импорт воссоздаёт кампанию в выбранном кабинете.",
+    "import.json": "JSON-файл экспорта",
+
+    "macros.title": "Макросы названия",
+    "macros.hint": "Используйте их в шаблоне названия кампании:",
+    "macros.auto":
+      "название источника, где метка кабинета (id, его первые 4 цифры или имя кабинета) заменена на полный id целевого (по умолчанию)",
+    "macros.id4": "первые 4 цифры id целевого кабинета",
+    "macros.parts": "части названия источника по знаку _ (1-я, 3-я, остальное)",
+    "macros.source": "название кампании-источника",
+    "macros.account": "название целевого кабинета",
+    "macros.accountId": "id целевого кабинета",
+    "macros.currency": "валюта целевого кабинета",
+    "macros.mode": "режим клона (DRAFT / PAUSED / ACTIVE)",
+    "macros.index": "сквозной номер копии кампании (1, 2, 3 …)",
+    "macros.date": "сегодняшняя дата, ГГГГ-ММ-ДД",
+
+    "risk.noBm": "нет БМ",
+    "risk.noPage": "нет страницы",
+    "risk.ok": "готов",
+
+    "logs.title": "Лог",
+    "logs.download": "Скачать лог",
+    "logs.dockEmpty": "Пока пусто.",
+    "report.kind.export": "Экспорт",
+    "report.kind.import": "Импорт",
+    "report.kind.clone": "Клонирование",
+    "report.status.success": "выполнено",
+    "report.status.partial": "выполнено частично",
+    "report.status.failed": "ошибка",
+    "report.status.cancelled": "отменено",
+    "report.status.needs_review": "требует проверки",
+    "report.account": "кабинет {id}",
+    "report.details": "Детали и оставшиеся объекты",
+    "report.download": "Скачать отчёт",
+    "report.reload": "Открыть в Ads Manager",
+    "report.ok": "Ок",
+    "report.close": "Закрыть",
+    "report.mass.title": "Массовое клонирование",
+    "report.mass.counters":
+      "склонировано {cloned} · с ошибкой {failed} · пропущено {skipped}",
+    "targets.noPayment": "скрыто кабинетов без платёжного метода: {n}",
+    "rate.manual": "курс",
+    "rate.autoHint": "Курс из Meta: {rate}",
+    "currency.none": "нет курса",
+    "status.loading": "Ищем access_token…",
+    "status.ready": "Сессия готова",
+    "status.missing": "Сессия не загружена",
+    "status.busy": "выполняется операция",
+  },
+};
+
+let lang = "en";
+try {
+  const stored = localStorage.getItem(LANG_KEY);
+  if (stored === "ru" || stored === "en") lang = stored;
+} catch {
+  /* storage can be unavailable in a sandboxed frame */
+}
+
+export function getLang() {
+  return lang;
+}
+
+export function setLang(next) {
+  lang = next === "ru" ? "ru" : "en";
+  try {
+    localStorage.setItem(LANG_KEY, lang);
+  } catch {
+    /* ignore */
+  }
+  return lang;
+}
+
+export function t(key, vars) {
+  const value = DICT[lang]?.[key] ?? DICT.en[key] ?? key;
+  if (!vars) return value;
+  return value.replace(/\{(\w+)\}/g, (match, name) =>
+    Object.prototype.hasOwnProperty.call(vars, name)
+      ? String(vars[name])
+      : match,
+  );
+}
+
+const RU_STAT_FORMS = {
+  "stat.adsets": ["группа объявлений", "группы объявлений", "групп объявлений"],
+  "stat.ads": ["объявление", "объявления", "объявлений"],
+  "stat.creatives": ["креатив", "креатива", "креативов"],
+  "stat.media": ["медиафайл", "медиафайла", "медиафайлов"],
+  "stat.catalogs": ["каталог", "каталога", "каталогов"],
+};
+
+/** Plural-aware label for the source summary tiles. */
+export function statLabel(key, count) {
+  if (lang !== "ru" || !RU_STAT_FORMS[key]) return t(key);
+  const n = Math.abs(Number(count) || 0) % 100;
+  const n1 = n % 10;
+  const forms = RU_STAT_FORMS[key];
+  if (n > 10 && n < 20) return forms[2];
+  if (n1 === 1) return forms[0];
+  if (n1 >= 2 && n1 <= 4) return forms[1];
+  return forms[2];
+}
+
+function ruForm(n, forms) {
+  const value = Math.abs(Number(n) || 0) % 100;
+  const last = value % 10;
+  if (value > 10 && value < 20) return forms[2];
+  if (last === 1) return forms[0];
+  if (last >= 2 && last <= 4) return forms[1];
+  return forms[2];
+}
+
+/** "Clone 3 campaigns" with correct Russian plural. */
+export function cloneToLabel(count) {
+  if (lang === "ru") {
+    return `Клонировать ${count} ${ruForm(count, [
+      "кампанию",
+      "кампании",
+      "кампаний",
+    ])}`;
+  }
+  return `Clone ${count} campaign${Number(count) === 1 ? "" : "s"}`;
+}
+
+/** Compact plural form for the collapsed summary line. */
+export function smallLabel(key, count) {
+  const n = Number(count) || 0;
+  if (lang === "ru") return statLabel(key, n);
+  const english = {
+    "stat.adsets": ["ad set", "ad sets"],
+    "stat.ads": ["ad", "ads"],
+    "stat.creatives": ["creative", "creatives"],
+    "stat.media": ["media file", "media files"],
+    "stat.catalogs": ["catalog", "catalogs"],
+  }[key];
+  if (!english) return t(key);
+  return n === 1 ? english[0] : english[1];
+}
