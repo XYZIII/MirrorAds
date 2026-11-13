@@ -101,7 +101,7 @@ export class PanelView {
       const active =
         state.activeTab === "import"
           ? "clone"
-          : ["export", "clone"].includes(state.activeTab)
+          : ["export", "clone", "reports"].includes(state.activeTab)
             ? state.activeTab
             : "export";
       dom.root.querySelectorAll(".ma-tab").forEach((button) => {

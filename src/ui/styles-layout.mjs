@@ -628,6 +628,142 @@ export function buildLayoutStyles(appId) {
       ${A} .ma-macros-pop code { background: #ecfbd6; color: var(--ma-lime-deep); }
       ${A} .ma-macros-pop span { color: var(--ma-muted); }
 
+      /* ---- reports ---- */
+      ${A} .ma-seg {
+        display: inline-flex;
+        padding: 3px;
+        border-radius: 999px;
+        background: #f1f2f5;
+      }
+      ${A} .ma-seg button {
+        height: 30px;
+        padding: 0 13px;
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        color: var(--ma-muted);
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      ${A} .ma-seg button:hover { background: transparent; color: var(--ma-ink); }
+      ${A} .ma-seg button.is-on {
+        background: #ffffff;
+        color: var(--ma-ink);
+        box-shadow: 0 1px 3px rgba(17, 24, 39, 0.14);
+      }
+      ${A} .ma-rep-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 2px 0 8px; }
+      ${A} .ma-rep-refresh { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; }
+      ${A} .ma-rep-refresh .ma-ico { width: 15px; height: 15px; }
+      ${A} .ma-rep-zonehint { margin: 0 0 14px; font-size: 12px; color: var(--ma-muted); }
+      ${A} .ma-rep-tiles { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 8px; margin: 0 0 14px; }
+      ${A} .ma-rep-tile { padding: 12px 14px; border-radius: 14px; background: var(--ma-soft); }
+      ${A} .ma-rep-tile:first-child { background: #111827; }
+      ${A} .ma-rep-tile span {
+        display: block;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--ma-faint);
+      }
+      ${A} .ma-rep-tile b {
+        display: block;
+        margin: 4px 0 2px;
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: var(--ma-ink);
+        font-variant-numeric: tabular-nums;
+      }
+      ${A} .ma-rep-tile small { font-size: 12px; color: var(--ma-muted); }
+      ${A} .ma-rep-tile:first-child b { color: var(--ma-lime); }
+      ${A} .ma-rep-tile:first-child small { color: #9ca3af; }
+      ${A} .ma-rep-warn {
+        margin: 0 0 10px;
+        padding: 9px 12px;
+        border-radius: 10px;
+        background: #fff7e0;
+        color: #7a5200;
+        font-size: 12px;
+      }
+      ${A} .ma-rep-head,
+      ${A} .ma-rep-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 104px 92px 92px 34px;
+        align-items: center;
+        column-gap: 10px;
+      }
+      ${A} .ma-rep-head {
+        padding: 0 12px 6px;
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--ma-faint);
+      }
+      ${A} .ma-rep-head span:not(:first-child) { text-align: right; }
+      ${A} .ma-rep-row {
+        margin: 0 0 6px;
+        padding: 10px 12px;
+        border: 1px solid var(--ma-line);
+        border-radius: 14px;
+        background: #ffffff;
+      }
+      ${A} .ma-rep-row:hover { border-color: #cfd3db; }
+      ${A} .ma-rep-zero { background: var(--ma-soft); border-color: transparent; }
+      ${A} .ma-rep-zero b { color: var(--ma-muted); font-weight: 500; }
+      ${A} .ma-rep-acct { min-width: 0; }
+      ${A} .ma-rep-acct b {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--ma-ink);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      ${A} .ma-rep-acct span { display: block; font-size: 11px; color: var(--ma-faint); font-variant-numeric: tabular-nums; }
+      ${A} .ma-rep-note {
+        display: inline-block;
+        margin-top: 4px;
+        padding: 1px 8px;
+        border-radius: 999px;
+        background: #fff7e0;
+        color: #7a5200;
+        font-size: 11px;
+      }
+      ${A} .ma-rep-note.ma-rep-err { background: #fff0f0; color: #b42318; }
+      ${A} .ma-rep-num { text-align: right; font-variant-numeric: tabular-nums; }
+      ${A} .ma-rep-num b { display: block; font-size: 13px; font-weight: 600; color: var(--ma-ink); }
+      ${A} .ma-rep-num small { display: block; font-size: 11px; color: var(--ma-faint); }
+      ${A} .ma-rep-open {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        background: #f1f2f5;
+        color: var(--ma-ink);
+        text-decoration: none;
+      }
+      ${A} .ma-rep-open:hover { background: var(--ma-lime); color: #14280a; }
+      ${A} .ma-rep-open .ma-ico { width: 16px; height: 16px; }
+      ${A} .ma-rep-stale { opacity: 0.55; }
+      ${A} .ma-rep-empty { padding: 28px 12px; text-align: center; color: var(--ma-muted); font-size: 13px; }
+      ${A} .ma-rep-more {
+        width: 100%;
+        min-height: 36px;
+        margin-top: 4px;
+        border: 1px dashed #cfd3db;
+        border-radius: 12px;
+        background: transparent;
+        color: var(--ma-muted);
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      ${A} .ma-rep-more:hover { background: var(--ma-soft); color: var(--ma-ink); }
+
       /* ---- log ---- */
       ${A} .ma-dock {
         display: flex;

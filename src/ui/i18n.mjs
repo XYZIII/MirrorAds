@@ -22,6 +22,41 @@ const DICT = {
     "menu.prevVersion": "Load previous version",
     "tab.export": "Export",
     "tab.import": "Import",
+    "tab.reports": "Reports",
+    "reports.period.today": "Today",
+    "reports.period.yesterday": "Yesterday",
+    "reports.period.last7": "7 days",
+    "reports.zone.account": "Account time",
+    "reports.zone.viewer": "My time",
+    "reports.zoneHint.account":
+      "Each account's day is counted in its own time zone, as in Ads Manager.",
+    "reports.zoneHint.viewer":
+      "One day for every account, counted in your time zone ({zone}) from hourly data.",
+    "reports.refresh": "Refresh",
+    "reports.loading": "Loading",
+    "reports.loadingFirst": "Loading the report…",
+    "reports.empty": "Open the tab again or press Refresh.",
+    "reports.waiting":
+      "Ad accounts are still loading. Press Refresh in a moment.",
+    "reports.spend": "Spend",
+    "reports.leads": "Leads",
+    "reports.purchases": "Purchases",
+    "reports.cpl": "CPL",
+    "reports.cpa": "CPA",
+    "reports.account": "Ad account",
+    "reports.accountsSpending": "{count} accounts spending",
+    "reports.open": "Open this account in Ads Manager (new tab)",
+    "reports.noSpend": "No spend in this period.",
+    "reports.showIdle": "Show {count} accounts without spend",
+    "reports.hideIdle": "Hide {count} accounts without spend",
+    "reports.rowError": "Could not load",
+    "reports.fallback": "account time",
+    "reports.fallbackHint":
+      "Meta returned no hourly data for this account, so its day is counted in the account's own time zone.",
+    "reports.unconverted":
+      "{count} account(s) have no USD rate from Meta and are not in the total.",
+    "reports.noConversions":
+      'Leads and purchases are not available by the hour: Meta gives them only for the account\'s own day. Switch to "Account time" to see them.',
     "tab.clone": "Clone",
 
     "field.account": "Ad account",
@@ -226,6 +261,41 @@ const DICT = {
     "menu.prevVersion": "Загрузить предыдущую версию",
     "tab.export": "Экспорт",
     "tab.import": "Импорт",
+    "tab.reports": "Отчёты",
+    "reports.period.today": "Сегодня",
+    "reports.period.yesterday": "Вчера",
+    "reports.period.last7": "7 дней",
+    "reports.zone.account": "Пояс кабинета",
+    "reports.zone.viewer": "Мой пояс",
+    "reports.zoneHint.account":
+      "Сутки каждого кабинета считаются в его собственном часовом поясе, как в Ads Manager.",
+    "reports.zoneHint.viewer":
+      "Одни сутки для всех кабинетов, по вашему часовому поясу ({zone}), из почасовых данных.",
+    "reports.refresh": "Обновить",
+    "reports.loading": "Загрузка",
+    "reports.loadingFirst": "Загружаю отчёт…",
+    "reports.empty": "Откройте вкладку ещё раз или нажмите «Обновить».",
+    "reports.waiting":
+      "Кабинеты ещё загружаются. Нажмите «Обновить» чуть позже.",
+    "reports.spend": "Расход",
+    "reports.leads": "Лиды",
+    "reports.purchases": "Продажи",
+    "reports.cpl": "CPL",
+    "reports.cpa": "CPA",
+    "reports.account": "Кабинет",
+    "reports.accountsSpending": "кабинетов с расходом: {count}",
+    "reports.open": "Открыть этот кабинет в Ads Manager (новая вкладка)",
+    "reports.noSpend": "За этот период расхода нет.",
+    "reports.showIdle": "Показать кабинеты без расхода: {count}",
+    "reports.hideIdle": "Скрыть кабинеты без расхода: {count}",
+    "reports.rowError": "Не удалось загрузить",
+    "reports.fallback": "по поясу кабинета",
+    "reports.fallbackHint":
+      "Meta не отдала почасовые данные по этому кабинету, поэтому его сутки посчитаны в его собственном поясе.",
+    "reports.unconverted":
+      "У кабинетов ({count}) нет курса к доллару от Meta, они не вошли в итог.",
+    "reports.noConversions":
+      "Лиды и продажи по часам недоступны: Meta отдаёт их только за сутки кабинета. Чтобы увидеть их, переключитесь на «Пояс кабинета».",
     "tab.clone": "Клон",
 
     "field.account": "Рекламный кабинет",

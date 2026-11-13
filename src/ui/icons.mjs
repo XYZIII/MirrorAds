@@ -9,6 +9,12 @@ export const ICONS = {
   export: icon(
     '<path d="M12 15V4"/><path d="m7.5 8.5 4.5-4.5 4.5 4.5"/><path d="M4.5 14.5v3A2.5 2.5 0 0 0 7 20h10a2.5 2.5 0 0 0 2.5-2.5v-3"/>',
   ),
+  reports: icon(
+    '<path d="M5 19.5V11"/><path d="M12 19.5V4.5"/><path d="M19 19.5v-6"/>',
+  ),
+  open: icon(
+    '<path d="M13.5 5H19v5.5"/><path d="M19 5 10.5 13.5"/><path d="M17 14v3.5A1.5 1.5 0 0 1 15.5 19h-9A1.5 1.5 0 0 1 5 17.5v-9A1.5 1.5 0 0 1 6.5 7H10"/>',
+  ),
   log: icon('<path d="M5 6.5h14"/><path d="M5 12h14"/><path d="M5 17.5h9"/>'),
   refresh: icon(
     '<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4.2h-4.2"/>',

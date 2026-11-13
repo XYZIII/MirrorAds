@@ -80,6 +80,13 @@ export class MirrorAdsState {
     this.massStopping = false;
     this.refreshAfterRun = false;
     this.massResults = [];
+    this.report = null;
+    this.reportPeriod = "today";
+    this.reportZone = "account";
+    this.reportLoading = false;
+    this.reportProgress = "";
+    this.reportError = "";
+    this.reportShowEmpty = false;
     this.activeTab = "clone";
     // The source block starts expanded: the operator picks files there.
     this.cloneSourceCollapsed = false;

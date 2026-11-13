@@ -51,6 +51,8 @@ import { MassCloneView } from "../ui/mass-clone-view.mjs";
 import { MassCloneController } from "../ui/mass-clone-controller.mjs";
 import { CurrencyRateService } from "../accounts/currency-rate-service.mjs";
 import { ValueRuleService } from "../value-rules/value-rule-service.mjs";
+import { ReportService } from "../reports/report-service.mjs";
+import { ReportsView } from "../ui/reports-view.mjs";
 import { APP_ID } from "./constants.mjs";
 
 /** Construct one runtime. Each service receives only its declared collaborators.
@@ -227,6 +229,29 @@ export function createServices({ state, dom, logger, overrides = {} }) {
       },
       get massCloneController() {
         return services.massCloneController;
+      },
+      get reportsView() {
+        return services.reportsView;
+      },
+    });
+  services.reportService =
+    overrides.reportService ||
+    new ReportService({
+      get graphClient() {
+        return services.graphClient;
+      },
+    });
+  services.reportsView =
+    overrides.reportsView ||
+    new ReportsView({
+      state,
+      dom,
+      appId: APP_ID,
+      get logging() {
+        return services.logging;
+      },
+      get reportService() {
+        return services.reportService;
       },
     });
   services.sessionService =

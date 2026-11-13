@@ -42,7 +42,7 @@ export class PanelController {
       loadExportPreview,
     } = this.dependencies.campaignController;
     const { exportSelectedCampaign } = this.dependencies.exportWorkflow;
-    const { massCloneController } = this.dependencies;
+    const { massCloneController, reportsView } = this.dependencies;
     const { ensureClonePackageLoaded } = this.dependencies.cloneWorkflow;
     const { handleImportJsonSelected } = this.dependencies.importController;
     const { clearCurrentAccountDrafts } = this.dependencies.draftController;
@@ -64,6 +64,7 @@ export class PanelController {
         <nav class="ma-rail" aria-label="MirrorAds">
           <div class="ma-rail-logo">${APP_MARK_SVG}</div>
           <button class="ma-tab" data-tab="clone" title="${t("tab.clone")}">${ICONS.clone}<span>${t("tab.clone")}</span></button>
+          <button class="ma-tab" data-tab="reports" data-always-enabled title="${t("tab.reports")}">${ICONS.reports}<span>${t("tab.reports")}</span></button>
           <button class="ma-tab ma-tab-active" data-tab="export" title="${t("tab.export")}">${ICONS.export}<span>${t("tab.export")}</span></button>
           <button id="${APP_ID}-log-toggle" class="ma-rail-btn ma-log-toggle" data-always-enabled title="${t("btn.log")}" aria-label="${t("btn.log")}" aria-expanded="false">${ICONS.log}<span>${t("logs.title")}</span></button>
           <span class="ma-rail-gap"></span>
@@ -93,6 +94,7 @@ export class PanelController {
         </div>
 
         <div class="ma-body">
+          <div class="ma-tab-panel ma-hidden" id="${APP_ID}-panel-reports"></div>
           <div class="ma-tab-panel" id="${APP_ID}-panel-export">
             <section class="ma-card">
               <h3 class="ma-sec">${t("tab.export")}</h3>
@@ -538,11 +540,13 @@ export class PanelController {
         if (btn.dataset.tab === "clone") {
           massCloneController.ensureTargetsLoaded();
         }
+        if (btn.dataset.tab === "reports") reportsView.open();
       });
     });
     // Bind the clone flow up front: the panel is remounted on session changes
     // and the wiring must exist before the first click.
     massCloneController.bind(root);
+    reportsView.bind(root);
     // Clone is the default tab. Before the session is connected only the
     // view switches (renderUI); the targets load once the session is ready.
     if (state.activeTab && state.activeTab !== "export" && state.sessionReady) {

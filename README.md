@@ -8,6 +8,7 @@ MirrorAds clones Facebook Ads Manager campaigns between ad accounts from a side 
 - Names every clone for its account: the account marker in the campaign name (the source account id, its first four digits or the account label) is replaced by the full id of the target account, so `PEAK_1840AU Matt_V2` becomes `PEAK_1745662286529117AU Matt_V2`. The panel shows each name before the run and lets you edit it per account.
 - Carries value rules over: the rule set attached to an ad set is reused in a target account that already has the same rules, and created there otherwise.
 - Maps pages, pixels and catalogs per account, converts budgets between currencies, rolls back a failed account and continues with the rest.
+- Reports spend, leads and purchases per ad account in USD, either by each account's own day or by one day in your time zone, with a link that opens the account in Ads Manager.
 - Exports a campaign to JSON with its media and imports it back.
 
 ## Install
