@@ -215,7 +215,6 @@ export class DirectWriter {
     }
     state.operationReport?.record("adset", json.id, body.name, {
       status: "PAUSED",
-      sourceStatus: String(adset.status || ""),
       parentId: String(campaignId),
     });
     return String(json.id);
@@ -239,7 +238,6 @@ export class DirectWriter {
     });
     state.operationReport?.record("ad", json.id, body.name, {
       status: "PAUSED",
-      sourceStatus: String(ad.status || ""),
       parentId: String(adsetId),
     });
     return String(json.id);
@@ -253,10 +251,10 @@ export class DirectWriter {
   }
 
   /**
-   * Switches the staged hierarchy on once it is complete. Ad sets and ads get
-   * the switch they have in the source (one that was off stays off); the
-   * campaign is switched on only for ACTIVE (`options.campaign !== false`),
-   * so a PAUSED clone is a campaign that is off with everything inside ready.
+   * Switches the staged hierarchy on once it is complete. Ad sets and ads are
+   * always switched on, whatever the source had; the campaign is switched on
+   * only for ACTIVE (`options.campaign !== false`), so a PAUSED clone is a
+   * campaign that is off with everything inside it ready to run.
    */
   async activateCampaign(campaignId, options = {}) {
     const withCampaign = options.campaign !== false;
@@ -289,10 +287,7 @@ export class DirectWriter {
     try {
       for (const type of ["ad", "adset", "campaign"])
         for (const item of records.filter((x) => x.type === type)) {
-          if (
-            type === "campaign" ? !withCampaign : item.sourceStatus === "PAUSED"
-          )
-            continue;
+          if (type === "campaign" && !withCampaign) continue;
           await graphFetch(item.id, {
             method: "POST",
             body: { status: "ACTIVE" },

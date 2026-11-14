@@ -406,20 +406,20 @@ test("PAUSED switches on ad sets and ads but leaves the campaign off", async () 
   assert.equal(f.entities.get("1").status, "PAUSED");
   assert.equal(f.state.operationReport.activation, "campaign_paused");
 });
-test("an ad that is off in the source stays off after activation", async () => {
+test("an ad that is off in the source is switched on like the rest", async () => {
   const f = directFixture();
-  const c = await f.writer.createCampaign("A", {});
+  const c = await f.writer.createCampaign("A", { status: "PAUSED" });
   const s = await f.writer.createAdset(
     "A",
     c,
-    { name: "set", targeting: {} },
+    { name: "set", targeting: {}, status: "PAUSED" },
     {},
   );
   await f.writer.createAd("A", s, { name: "ad", status: "PAUSED" }, "creative");
   await f.writer.activateCampaign(c);
   assert.deepEqual(
     ["1", "2", "3"].map((id) => f.entities.get(id).status),
-    ["ACTIVE", "ACTIVE", "PAUSED"],
+    ["ACTIVE", "ACTIVE", "ACTIVE"],
   );
 });
 test("activation failure keeps campaign paused and incomplete hierarchy cannot activate", async () => {

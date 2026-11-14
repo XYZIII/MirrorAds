@@ -2,15 +2,11 @@ import { getEffectiveAdsetBidStrategy } from "./budget.mjs";
 
 /**
  * Switch state of an object written into a draft. A draft never delivers
- * before it is published, so the clone is left ready to go: the campaign is
- * switched on, and ad sets and ads keep the switch they have in the source
- * (an ad that was deliberately switched off stays off).
+ * before it is published, so the clone is left ready to go: the campaign,
+ * its ad sets and its ads are all switched on, whatever the source had.
  */
-export function draftObjectStatus(level, source) {
-  if (level === "campaign") return "ACTIVE";
-  return String(source?.status || "").toUpperCase() === "PAUSED"
-    ? "PAUSED"
-    : "ACTIVE";
+export function draftObjectStatus() {
+  return "ACTIVE";
 }
 
 /** Bid strategies Ads Manager allows value rules with. */

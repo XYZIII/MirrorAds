@@ -271,13 +271,12 @@ test("a fixed USD budget is refused without a rate for the account", async () =>
   assert.equal(results[0].failed, 1);
 });
 
-test("draft clones are left switched on, source switches kept below the campaign", async () => {
+test("draft clones are switched on at every level; value rules get a bid strategy", async () => {
   const { draftObjectStatus, valueRuleBidStrategy } =
     await import("../src/domain/draft-defaults.mjs");
-  assert.equal(draftObjectStatus("campaign", { status: "PAUSED" }), "ACTIVE");
-  assert.equal(draftObjectStatus("adset", { status: "ACTIVE" }), "ACTIVE");
-  assert.equal(draftObjectStatus("adset", {}), "ACTIVE");
-  assert.equal(draftObjectStatus("ad", { status: "PAUSED" }), "PAUSED");
+  for (const level of ["campaign", "adset", "ad"]) {
+    assert.equal(draftObjectStatus(level, { status: "PAUSED" }), "ACTIVE");
+  }
 
   // Campaign budget: the ad set has no strategy of its own, so it gets the campaign's.
   assert.equal(
