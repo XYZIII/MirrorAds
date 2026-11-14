@@ -65,7 +65,11 @@
     );
   }
 
-  async function graph(url, init) {
+  // Ads Manager talks to Graph through its own host; the public host is the
+  // fallback. Which of them the page may call differs between requests.
+  const HOSTS = ["adsmanager-graph.facebook.com", "graph.facebook.com"];
+
+  async function request(url, init) {
     const response = await withTimeout(
       fetch(
         url,
@@ -78,29 +82,48 @@
     try {
       json = JSON.parse(text);
     } catch (_error) {
-      throw new Error(`Facebook ответил не JSON (${response.status})`);
+      throw new Error(`ответ не JSON (${response.status})`);
     }
     if (!response.ok || json?.error) {
-      throw new Error(json?.error?.message || `Facebook ${response.status}`);
+      throw new Error(json?.error?.message || `код ${response.status}`);
     }
     return json;
   }
 
+  /** One Graph call, tried on each host; the error names the step. */
+  async function graph(step, pathAndQuery, init) {
+    const failures = [];
+    for (const host of HOSTS) {
+      try {
+        return await request(`https://${host}/v23.0/${pathAndQuery}`, init);
+      } catch (error) {
+        failures.push(`${host.split(".")[0]}: ${error?.message || error}`);
+      }
+    }
+    throw new Error(`${step} — ${failures.join("; ")}`);
+  }
+
+  const token = () => `access_token=${encodeURIComponent(accessToken())}`;
   const byUrl = (pageUrl, scrape) =>
-    `https://graph.facebook.com/v23.0/?id=${encodeURIComponent(pageUrl)}&fields=og_object` +
-    `${scrape ? "&scrape=true" : ""}&access_token=${encodeURIComponent(accessToken())}`;
+    `?id=${encodeURIComponent(pageUrl)}&fields=og_object${scrape ? "&scrape=true" : ""}&${token()}`;
 
   /** Asks Facebook to read a published page again. */
-  const scrape = (pageUrl) => graph(byUrl(pageUrl, true), { method: "POST" });
+  const scrape = (pageUrl) =>
+    graph("обновление страницы в Facebook", byUrl(pageUrl, true), {
+      method: "POST",
+    });
 
   /** Facebook's current copy of a published page: `{ title, description }`. */
   async function readPage(pageUrl) {
-    let id = (await graph(byUrl(pageUrl, false)))?.og_object?.id;
+    let id = (await graph("поиск страницы", byUrl(pageUrl, false)))?.og_object
+      ?.id;
     if (!id) id = (await scrape(pageUrl))?.og_object?.id;
-    if (!id) throw new Error("Facebook не видит страницу обновления");
+    if (!id) {
+      throw new Error(`Facebook не смог прочитать страницу ${pageUrl}`);
+    }
     return graph(
-      `https://adsmanager-graph.facebook.com/v23.0/${encodeURIComponent(id)}` +
-        `?fields=title,description&access_token=${encodeURIComponent(accessToken())}`,
+      "чтение страницы",
+      `${encodeURIComponent(id)}?fields=title,description&${token()}`,
     );
   }
 

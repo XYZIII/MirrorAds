@@ -253,6 +253,41 @@ test("an update reaches the browser by itself, never as a half-updated script", 
   );
 });
 
+test("a host the page may not call is skipped; the message names the step", async () => {
+  const facebook = fakeFacebook();
+  const built = site("141126b13");
+  facebook.publish(built);
+  const calls = [];
+  const picky = {
+    fetch: async (url, init = {}) => {
+      const host = new URL(url).hostname;
+      calls.push(`${init.method || "GET"} ${host}`);
+      // The Ads Manager host refuses lookups by URL, the public one refuses
+      // everything else, the way a page's rules can split them.
+      const byUrl = new URL(url).searchParams.has("id");
+      if ((host === "adsmanager-graph.facebook.com") === byUrl) {
+        throw new TypeError("Failed to fetch");
+      }
+      return facebook.fetch(url, init);
+    },
+  };
+  const result = await runLoader(picky, {}, built);
+  assert.deepEqual(result.alerts, []);
+  assert.deepEqual(result.ran, ["141126b13"]);
+  assert.ok(calls.includes("POST graph.facebook.com"));
+
+  const blocked = {
+    fetch: async () => {
+      throw new TypeError("Failed to fetch");
+    },
+  };
+  const failed = await runLoader(blocked, {}, built);
+  assert.match(
+    failed.alerts[0],
+    /поиск страницы — adsmanager-graph: Failed to fetch; graph: Failed to fetch/,
+  );
+});
+
 test("when Facebook is unreachable the saved script still starts; an operation blocks a reload", async () => {
   const facebook = fakeFacebook();
   const built = site("141126b13");
