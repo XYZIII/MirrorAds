@@ -12,7 +12,7 @@ export function buildLayoutStyles(appId) {
   return `
       ${A} {
         inset: 0 0 0 auto;
-        width: min(700px, 100vw);
+        width: min(var(--ma-panel-w, 700px), 100vw);
         font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         font-size: 13px;
         line-height: 1.4;

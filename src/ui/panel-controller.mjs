@@ -11,6 +11,8 @@ import { buildDefaultCloneCampaignName } from "../domain/names.mjs";
 import { indexMediaFilesBySha256 } from "../media/media-hashes.mjs";
 import { getLang, setLang, t } from "./i18n.mjs";
 import { ICONS } from "./icons.mjs";
+import { PageDock } from "./page-dock.mjs";
+import { WhatsNew } from "./whats-new.mjs";
 
 /** PanelController. Dependencies are supplied by the application composition root. */
 export class PanelController {
@@ -290,7 +292,11 @@ export class PanelController {
       </div>
     `;
 
-    document.body.appendChild(root);
+    // Outside the body: the body is what moves aside for the panel.
+    document.documentElement.appendChild(root);
+    this.pageDock?.release();
+    this.pageDock = new PageDock({ root }).attach();
+    new WhatsNew({ root }).attach();
 
     dom.root = root;
     dom.loadingOverlay = root.querySelector(`#${APP_ID}-loading`);
@@ -965,6 +971,7 @@ export class PanelController {
     if (dom.root?.parentNode) {
       dom.root.parentNode.removeChild(dom.root);
     }
+    this.pageDock?.release();
     if (dom.serviceOutsideClick) {
       document.removeEventListener("click", dom.serviceOutsideClick);
       dom.serviceOutsideClick = null;

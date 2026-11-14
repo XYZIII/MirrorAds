@@ -22,6 +22,19 @@ const DICT = {
     "menu.prevVersion": "Load previous version",
     "tab.export": "Export",
     "tab.import": "Import",
+    "dock.toggle": "Move Ads Manager aside",
+    "dock.onHint":
+      "On: Ads Manager moves left and the panel takes the free space. Click to lay the panel over the page.",
+    "dock.offHint":
+      "Off: the panel lies over Ads Manager. Click to move Ads Manager aside.",
+    "dock.resize":
+      "Drag to change the width. Double-click for the standard width.",
+    "news.menu": "What's new",
+    "news.title": "What's new in MirrorAds",
+    "news.history": "Update history",
+    "news.build": "Build {version}",
+    "news.all": "All updates",
+    "news.ok": "Got it",
     "tab.reports": "Reports",
     "tab.rules": "Rules",
     "rules.source": "Copy rules from",
@@ -398,6 +411,19 @@ const DICT = {
     "menu.prevVersion": "Загрузить предыдущую версию",
     "tab.export": "Экспорт",
     "tab.import": "Импорт",
+    "dock.toggle": "Сдвигать Ads Manager",
+    "dock.onHint":
+      "Включено: Ads Manager сдвигается влево, окно занимает освободившееся место. Нажмите, чтобы окно было поверх страницы.",
+    "dock.offHint":
+      "Выключено: окно лежит поверх Ads Manager. Нажмите, чтобы сдвигать Ads Manager.",
+    "dock.resize":
+      "Потяните, чтобы изменить ширину. Двойной клик — стандартная ширина.",
+    "news.menu": "Что нового",
+    "news.title": "Что нового в MirrorAds",
+    "news.history": "История обновлений",
+    "news.build": "Сборка {version}",
+    "news.all": "Все обновления",
+    "news.ok": "Понятно",
     "tab.reports": "Отчёты",
     "tab.rules": "Правила",
     "rules.source": "Откуда копировать правила",

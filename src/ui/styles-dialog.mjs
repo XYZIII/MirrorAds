@@ -117,5 +117,73 @@ export function buildDialogStyles(A) {
         background: var(--ma-lime);
       }
       ${A} .ma-overlay .ma-report-card .ma-actions button.ma-primary:hover { background: #a3ea4b; }
+      /* ---- the build number opens the update history ---- */
+      ${A} .ma-build { cursor: pointer; }
+      ${A} .ma-build:hover { color: var(--ma-ink); text-decoration: underline; }
+      /* ---- docked next to Ads Manager; the left edge resizes the panel ---- */
+      ${A} .ma-resize {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: -5px;
+        width: 10px;
+        z-index: 90;
+        cursor: col-resize;
+        pointer-events: auto;
+        touch-action: none;
+      }
+      ${A} .ma-resize::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 3px;
+        width: 4px;
+        height: 48px;
+        margin-top: -24px;
+        border-radius: 4px;
+        background: var(--ma-lime-deep);
+        opacity: 0;
+        transition: opacity 0.15s ease;
+      }
+      ${A} .ma-resize:hover::after,
+      html.mirrorads-resizing ${A} .ma-resize::after { opacity: 0.9; }
+      ${A}.ma-min .ma-resize { display: none; }
+      html.mirrorads-pushed ${A} .ma-shell { box-shadow: none; }
+      ${A} .ma-menu button.ma-menu-check { display: flex; align-items: center; gap: 8px; }
+      ${A} .ma-menu button.ma-menu-check::before {
+        content: "";
+        flex: 0 0 16px;
+        display: grid;
+        place-items: center;
+        width: 16px;
+        height: 16px;
+        border: 1.5px solid #d1d5db;
+        border-radius: 5px;
+        background: #ffffff;
+        color: var(--ma-ink);
+        font-size: 11px;
+        font-weight: 800;
+        line-height: 1;
+      }
+      ${A} .ma-menu button.ma-menu-check[aria-checked="true"]::before {
+        content: "✓";
+        border-color: var(--ma-lime-deep);
+        background: var(--ma-lime);
+      }
+      /* ---- what's new ---- */
+      ${A} .ma-overlay .ma-report-card.ma-news {
+        display: flex;
+        flex-direction: column;
+        width: min(540px, 100%);
+        max-height: calc(100% - 40px);
+      }
+      ${A} .ma-overlay .ma-news .ma-report-head h3::before { content: "✦"; }
+      ${A} .ma-news-list { flex: 1 1 auto; min-height: 0; overflow: auto; margin: 8px -6px 0 0; padding-right: 6px; }
+      ${A} .ma-news-entry + .ma-news-entry { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--ma-line); }
+      ${A} .ma-news-ver { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+      ${A} .ma-news-ver b { font-size: 13px; font-weight: 700; color: var(--ma-ink); }
+      ${A} .ma-news-ver span { font-size: 11px; color: var(--ma-faint); }
+      ${A} .ma-news ul { margin: 0; padding-left: 18px; }
+      ${A} .ma-news li { margin: 5px 0; font-size: 13px; line-height: 1.5; color: #374151; }
     `;
 }
