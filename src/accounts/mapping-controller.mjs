@@ -82,9 +82,12 @@ export class MappingController {
     return getSourceCatalogsFromPackage(packageData).length > 0;
   }
 
-  importRequiresDraftOnly(packageData = this.dependencies.state.importPackage) {
-    const { packageUsesCatalogs } = this;
-    return packageUsesCatalogs(packageData);
+  /**
+   * Catalog campaigns used to be forced into a draft here, which silently
+   * turned an ACTIVE or PAUSED clone into a draft. The chosen mode is kept.
+   */
+  importRequiresDraftOnly() {
+    return false;
   }
 
   /**

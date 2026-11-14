@@ -22,7 +22,11 @@ import {
   explainDraftFragmentErrors,
   isTransientFragmentFailure,
 } from "../accounts/account-health.mjs";
-import { sleep } from "../utils/object.mjs";
+import { deepClone, sleep } from "../utils/object.mjs";
+import { runPool } from "../utils/pool.mjs";
+
+/** Ad fragments of one draft written at the same time. */
+const DRAFT_AD_CONCURRENCY = 3;
 
 /** ImportWorkflow. Dependencies are supplied by the application composition root. */
 export class ImportWorkflow {
@@ -288,6 +292,7 @@ export class ImportWorkflow {
             log("info", `Draft adset created: ${adset.name}`);
           }
 
+          const pendingAds = [];
           for (const ad of state.importPackage.ads) {
             const creative = state.importPackage.creatives.find(
               (item) => String(item.id) === String(ad?.creative?.id),
@@ -326,31 +331,50 @@ export class ImportWorkflow {
             const sourcePageId = getSourcePageId(creative);
             const mappedPageId =
               state.importPageMappings[sourcePageId] || sourcePageId;
-            const newDraftAdId = await createAdDraft(
-              state.importAccountId,
-              draftId,
-              draftCampaignId,
-              adsetDraftId,
+            pendingAds.push({
               ad,
-              draftCreative,
-              { draftTransaction },
-            );
-            const context = {
-              adId: String(newDraftAdId),
-              adName: ad.name,
-              pageId: String(mappedPageId || ""),
-              creativeId: String(creative.id || ""),
-              tempId: "",
-            };
-            draftAdContext.set(`id:${context.adId}`, context);
-            draftAdContext.set(
-              `name:${String(context.adName || "")
-                .trim()
-                .toLowerCase()}`,
-              context,
-            );
-            log("info", `Draft ad created: ${ad.name}`);
+              creative,
+              adsetDraftId,
+              // Each ad gets its own copy: the writer may adjust the payload.
+              draftCreative: deepClone(draftCreative),
+              mappedPageId,
+            });
           }
+          // Meta takes several seconds per ad fragment, so the ads of one
+          // draft are written a few at a time. Every write is allowed to
+          // finish before a failure is raised, so a rollback sees them all.
+          const adOutcomes = await runPool(
+            pendingAds,
+            DRAFT_AD_CONCURRENCY,
+            async (item) => {
+              const newDraftAdId = await createAdDraft(
+                state.importAccountId,
+                draftId,
+                draftCampaignId,
+                item.adsetDraftId,
+                item.ad,
+                item.draftCreative,
+                { draftTransaction },
+              );
+              const context = {
+                adId: String(newDraftAdId),
+                adName: item.ad.name,
+                pageId: String(item.mappedPageId || ""),
+                creativeId: String(item.creative.id || ""),
+                tempId: "",
+              };
+              draftAdContext.set(`id:${context.adId}`, context);
+              draftAdContext.set(
+                `name:${String(context.adName || "")
+                  .trim()
+                  .toLowerCase()}`,
+                context,
+              );
+              log("info", `Draft ad created: ${item.ad.name}`);
+            },
+          );
+          const failedAd = adOutcomes.find((outcome) => outcome.error);
+          if (failedAd) throw failedAd.error;
 
           const identityValidation = await ensureDraftInstagramIdentityParity(
             state.importAccountId,

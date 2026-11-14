@@ -315,3 +315,23 @@ test("draft clones are left switched on, source switches kept below the campaign
   );
   assert.equal(valueRuleBidStrategy({ bid_strategy: "COST_CAP" }, {}), "");
 });
+
+test("the pool limits concurrency, keeps order and waits for every item", async () => {
+  const { runPool } = await import("../src/utils/pool.mjs");
+  let running = 0;
+  let peak = 0;
+  const outcomes = await runPool([1, 2, 3, 4, 5], 2, async (n) => {
+    running += 1;
+    peak = Math.max(peak, running);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    running -= 1;
+    if (n === 2) throw new Error("boom");
+    return n * 10;
+  });
+  assert.equal(peak, 2);
+  assert.deepEqual(
+    outcomes.map((item) => item.value ?? item.error.message),
+    [10, "boom", 30, 40, 50],
+  );
+  assert.deepEqual(await runPool([], 3, async () => 1), []);
+});

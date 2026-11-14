@@ -157,7 +157,15 @@ export class DraftValidation {
               workingDraft = refreshedDraft;
               return affected;
             }
-            return false;
+            // Every fragment of this import is listed and none needs an
+            // identity fix: nothing to wait for. Waiting out the timeout
+            // here cost 20 seconds per account.
+            const listed = filterDraftFragmentsForTransaction(
+              refreshedDraft?.addraft_fragments?.data || [],
+              draftTransaction,
+            );
+            const expected = draftTransaction?.tempIds?.size || 0;
+            return expected && listed.length >= expected ? [] : false;
           },
           20000,
           1500,
