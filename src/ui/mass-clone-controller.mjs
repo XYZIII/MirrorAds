@@ -1,5 +1,7 @@
 import { getSourceCatalogsFromPackage } from "../domain/package.mjs";
 
+const TARGET_CONCURRENCY = 4;
+
 /** Binds the clone tab: target selection, per-account page/pixel/catalog, run, reset. */
 export class MassCloneController {
   constructor(dependencies) {
@@ -50,8 +52,10 @@ export class MassCloneController {
     state.massPages ||= {};
     state.massCatalogs ||= {};
     state.massCatalogBusiness ||= {};
-    const accounts = this.dependencies.massCloneView.targetAccounts();
-    for (const account of accounts) {
+    const queue = [...this.dependencies.massCloneView.targetAccounts()];
+    // Accounts are independent, so a few are prepared at once: with many
+    // accounts this is most of the time the Clone tab takes to become ready.
+    const prepare = async (account) => {
       const accountId = String(account.id);
       const context = await this.loadAccountContext(accountId);
       if (!state.massPixels[accountId]) {
@@ -87,7 +91,16 @@ export class MassCloneController {
         }),
       );
       state.massCatalogBusiness[accountId] = context?.business || null;
-    }
+    };
+    const worker = async () => {
+      while (queue.length) await prepare(queue.shift());
+    };
+    await Promise.all(
+      Array.from(
+        { length: Math.min(TARGET_CONCURRENCY, queue.length) },
+        worker,
+      ),
+    );
     this.dependencies.massCloneView.render();
   }
 

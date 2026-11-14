@@ -248,19 +248,25 @@ function createService({
   const calls = [];
   const service = new ReportService({
     graphClient: {
-      graphFetch: async (path) => {
+      graphFetch: async (path, options = {}) => {
         calls.push(path);
+        const wantsCampaigns = String(options.query?.fields).includes(
+          "campaigns",
+        );
+        if (campaigns === "refused" && wantsCampaigns) {
+          throw new Error("(#100) campaigns edge refused");
+        }
         if (path === `act_${failFor}`)
           throw new Error("(#10) Permission Denied");
-        return meta[path.replace("act_", "")];
+        const id = path.replace("act_", "");
+        // Campaign statuses come inside the account request.
+        return campaigns === "fail" || !wantsCampaigns
+          ? meta[id]
+          : { ...meta[id], campaigns: { data: campaigns[id] || [] } };
       },
       graphGetAll: async (path, query) => {
         calls.push({ path, hourly: Boolean(query.breakdowns), query });
         const id = path.split("/")[0].replace("act_", "");
-        if (path.endsWith("/campaigns")) {
-          if (campaigns === "fail") throw new Error("no campaigns access");
-          return campaigns[id] || [];
-        }
         return query.breakdowns ? hourlyRows[id] || [] : dailyRows[id] || [];
       },
     },
@@ -578,4 +584,47 @@ test("the report reads each account's status afresh", async () => {
   const second = await load();
   assert.equal(second.rows.find((row) => row.name === "Kyiv").health, "banned");
   assert.equal(second.total.activeCampaigns, 0);
+});
+
+test("campaign statuses come with the account, in one request", async () => {
+  const { service, calls } = createService({
+    meta: META,
+    hourlyRows: {},
+    dailyRows: {},
+    campaigns: { 111: [{ effective_status: "ACTIVE" }] },
+  });
+  await service.loadReport({
+    accounts: [ACCOUNTS[0]],
+    period: "today",
+    zoneMode: "account",
+    viewerZone: KYIV,
+    nowMs: NOW,
+  });
+  // One account read and one insights read: nothing asks for campaigns alone.
+  assert.equal(calls.length, 2);
+  assert.equal(
+    calls.some((call) => String(call.path || "").endsWith("/campaigns")),
+    false,
+  );
+});
+
+test("an account is still read when Meta refuses its campaigns", async () => {
+  const { service } = createService({
+    meta: { 111: { ...META[111], account_status: 1 } },
+    hourlyRows: {},
+    dailyRows: { 111: [{ spend: "12" }] },
+    campaigns: "refused",
+  });
+  const report = await service.loadReport({
+    accounts: [ACCOUNTS[0]],
+    period: "today",
+    zoneMode: "account",
+    viewerZone: KYIV,
+    nowMs: NOW,
+  });
+  const [row] = report.rows;
+  assert.equal(row.error, "");
+  assert.equal(row.spend, 12);
+  assert.equal(row.health, "live");
+  assert.equal(row.activeCampaigns, null);
 });

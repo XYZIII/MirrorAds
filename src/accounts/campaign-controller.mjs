@@ -121,6 +121,9 @@ export class CampaignController {
     const { log } = this.dependencies.logging;
     const { renderUI } = this.dependencies.panelView;
     const exporter = this.dependencies.campaignExporter;
+    // The preview reads the whole campaign. While another tab is open that is
+    // wasted work at startup; the Export tab asks again when it is shown.
+    if (state.activeTab && state.activeTab !== "export") return;
     const accountId = String(state.exportAccountId || "");
     const campaignId = String(state.exportCampaignId || "");
     if (!accountId || !campaignId || !exporter?.fetchCampaignExportPackage) {

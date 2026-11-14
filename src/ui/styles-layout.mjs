@@ -646,6 +646,18 @@ export function buildLayoutStyles(appId) {
         font-weight: 600;
         cursor: pointer;
       }
+      ${A} .ma-seg button em {
+        margin-left: 6px;
+        padding: 0 6px;
+        border-radius: 999px;
+        background: #e5e7eb;
+        color: var(--ma-ink);
+        font-size: 11px;
+        font-style: normal;
+        font-variant-numeric: tabular-nums;
+      }
+      ${A} .ma-seg button[data-report="status:live"] em { background: #dcf7c0; color: #1f6a10; }
+      ${A} .ma-seg button[data-report="status:dead"] em { background: #ffe9e9; color: #b42318; }
       ${A} .ma-seg button:hover { background: transparent; color: var(--ma-ink); }
       ${A} .ma-seg button.is-on {
         background: #ffffff;

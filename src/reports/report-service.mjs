@@ -11,11 +11,14 @@ import {
   zoneOffsetMinutes,
 } from "../domain/report-time.mjs";
 
+// Campaign statuses ride along with the account fields: one request instead
+// of two per account.
 const ACCOUNT_FIELDS =
   "currency,account_currency_ratio_to_usd,timezone_name,timezone_offset_hours_utc,account_status,disable_reason";
+const CAMPAIGN_FIELDS = "campaigns.limit(500){effective_status}";
 const INSIGHT_FIELDS = "spend,impressions,clicks,actions";
 const HOURLY = "hourly_stats_aggregated_by_advertiser_time_zone";
-const CONCURRENCY = 4;
+const CONCURRENCY = 8;
 
 /** ReportService. Dependencies are supplied by the application composition root. */
 export class ReportService {
@@ -29,9 +32,18 @@ export class ReportService {
   async loadAccountMeta(accountId) {
     if (this.accountMeta.has(accountId)) return this.accountMeta.get(accountId);
     const { graphFetch } = this.dependencies.graphClient;
-    let row = await graphFetch(`act_${accountId}`, {
-      query: { fields: ACCOUNT_FIELDS },
-    });
+    let row;
+    try {
+      row = await graphFetch(`act_${accountId}`, {
+        query: { fields: `${ACCOUNT_FIELDS},${CAMPAIGN_FIELDS}` },
+      });
+    } catch {
+      // If Meta refuses the campaigns part, the account itself is still worth
+      // reading: spend and status matter more than the campaign count.
+      row = await graphFetch(`act_${accountId}`, {
+        query: { fields: ACCOUNT_FIELDS },
+      });
+    }
     if (Array.isArray(row)) row = row[0] || {};
     const offsetHours = Number(row?.timezone_offset_hours_utc);
     // A zone name the browser does not know falls back to a fixed offset.
@@ -45,6 +57,8 @@ export class ReportService {
       statusCode: Number(row?.account_status) || null,
       disableReason: Number(row?.disable_reason) || 0,
       health: classifyAccountStatus(row?.account_status),
+      // Absent when Meta refuses the campaigns edge: unknown, not zero.
+      campaigns: row?.campaigns ? countCampaigns(row.campaigns.data) : null,
     };
     this.accountMeta.set(accountId, meta);
     return meta;
@@ -60,21 +74,6 @@ export class ReportService {
     });
   }
 
-  /** Campaigns switched on and off right now; null when they cannot be read. */
-  async loadCampaignCounts(accountId) {
-    const { graphGetAll } = this.dependencies.graphClient;
-    try {
-      return countCampaigns(
-        await graphGetAll(`act_${accountId}/campaigns`, {
-          fields: "effective_status",
-          limit: 500,
-        }),
-      );
-    } catch {
-      return null;
-    }
-  }
-
   /**
    * One account's line. `basis` says whose clock the period was read on:
    * "viewer", "account", or "account-fallback" when the viewer's clock was
@@ -86,7 +85,6 @@ export class ReportService {
   ) {
     const accountId = normalizeAccountId(account.id);
     const base = { accountId, name: account.name || accountId };
-    const campaignsPromise = this.loadCampaignCounts(accountId);
     try {
       const meta = await this.loadAccountMeta(accountId);
       const window = resolveWindow({
@@ -125,7 +123,7 @@ export class ReportService {
           basis = "account-fallback";
         }
       }
-      const campaigns = await campaignsPromise;
+      const campaigns = meta.campaigns;
       return {
         ...base,
         ...summary,
@@ -142,7 +140,7 @@ export class ReportService {
         error: "",
       };
     } catch (error) {
-      const campaigns = await campaignsPromise;
+      const campaigns = this.accountMeta.get(accountId)?.campaigns || null;
       return {
         ...base,
         spend: 0,

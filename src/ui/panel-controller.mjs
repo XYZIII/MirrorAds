@@ -541,6 +541,7 @@ export class PanelController {
           massCloneController.ensureTargetsLoaded();
         }
         if (btn.dataset.tab === "reports") reportsView.open();
+        if (btn.dataset.tab === "export") void loadExportPreview();
       });
     });
     // Bind the clone flow up front: the panel is remounted on session changes

@@ -219,13 +219,16 @@ export class ReportsView {
     }
   }
 
-  segment(kind, values, active) {
+  /** A segmented switch; `counts` adds a number after each label. */
+  segment(kind, values, active, counts = null) {
     return `<div class="ma-seg" role="group">${values
       .map(
         (value) =>
           `<button type="button" data-always-enabled data-report="${kind}:${value}" class="${
             value === active ? "is-on" : ""
-          }">${escapeHtml(t(`reports.${kind}.${value}`))}</button>`,
+          }">${escapeHtml(t(`reports.${kind}.${value}`))}${
+            counts ? `<em>${Number(counts[value]) || 0}</em>` : ""
+          }</button>`,
       )
       .join("")}</div>`;
   }
@@ -368,7 +371,18 @@ export class ReportsView {
     const statusFilter = `
       <div class="ma-rep-controls ma-rep-statusbar">
         <span>${escapeHtml(t("reports.statusLabel"))}</span>
-        ${this.segment("status", STATUSES, state.reportStatusFilter)}
+        ${this.segment(
+          "status",
+          STATUSES,
+          state.reportStatusFilter,
+          report
+            ? {
+                all: report.rows.length,
+                live: filterReportRows(report.rows, "live").length,
+                dead: filterReportRows(report.rows, "dead").length,
+              }
+            : null,
+        )}
       </div>`;
     if (state.reportError && !report) {
       panel.innerHTML = `${controls}<div class="ma-rep-empty">${escapeHtml(state.reportError)}</div>`;
