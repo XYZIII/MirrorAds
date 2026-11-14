@@ -12,6 +12,11 @@ import {
   shouldPush,
 } from "../src/ui/page-dock.mjs";
 import {
+  LicenseInfo,
+  REMIND_DAYS,
+  licenseNotice,
+} from "../src/ui/license-info.mjs";
+import {
   SEEN_KEY,
   WhatsNew,
   isReturningUser,
@@ -371,4 +376,80 @@ test("the changelog is well formed and never ahead of the release", () => {
     compareBuilds(CHANGELOG[0].version, version) <= 0,
     `changelog entry ${CHANGELOG[0].version} is ahead of package version ${version}`,
   );
+});
+
+test("the licence: key and end date in the ⚙ menu, a reminder in the last days", () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const now = Date.UTC(2026, 10, 15, 12);
+  const base = {
+    mode: "key",
+    key: "MA-ABCDEFGH",
+    renewUrl: "https://mirrorads.example/buy#renew=MA-ABCDEFGH-X",
+    cabinetUrl: "https://mirrorads.example/cabinet#MA-ABCDEFGH-X",
+  };
+  assert.equal(licenseNotice(undefined, now), null);
+  assert.equal(licenseNotice({ mode: "free" }, now), null);
+  const far = licenseNotice({ ...base, expiresAt: now + 20 * DAY }, now);
+  assert.deepEqual([far.daysLeft, far.remind, far.expired], [20, false, false]);
+  const near = licenseNotice(
+    { ...base, expiresAt: now + REMIND_DAYS * DAY },
+    now,
+  );
+  assert.equal(near.remind, true);
+  const ended = licenseNotice({ ...base, expiresAt: now - DAY }, now);
+  assert.deepEqual([ended.expired, ended.remind], [true, true]);
+  assert.equal(licenseNotice({ ...base, expiresAt: null }, now).remind, false);
+  assert.equal(
+    licenseNotice({ ...base, renewUrl: "javascript:alert(1)" }, now).renewUrl,
+    "",
+    "only https links",
+  );
+
+  const view = page();
+  new LicenseInfo({
+    root: view.root,
+    license: { ...base, expiresAt: now + 3 * DAY },
+    now,
+  }).attach();
+  const block = view.root.querySelector(".ma-menu .ma-license");
+  assert.match(block.textContent, /MA-ABCDEFGH/);
+  assert.match(block.textContent, /until \d{2}\.\d{2}\.2026/);
+  assert.deepEqual(
+    [...block.querySelectorAll("a")].map((link) => link.href),
+    [base.renewUrl, base.cabinetUrl],
+  );
+  assert.ok(
+    block.nextElementSibling.classList.contains("ma-version-note"),
+    "placed above the version note",
+  );
+  const banner = view.root.querySelector(".ma-head + .ma-license-banner");
+  assert.match(banner.textContent, /ends in 3 d\./);
+  banner.querySelector("[data-license-hide]").click();
+  assert.equal(view.root.querySelector(".ma-license-banner"), null);
+  view.close();
+
+  // A key without an end date: no renewal link, no reminder.
+  const lifetime = page();
+  new LicenseInfo({
+    root: lifetime.root,
+    license: { ...base, expiresAt: null },
+    now,
+  }).attach();
+  assert.match(
+    lifetime.root.querySelector(".ma-license").textContent,
+    /no end date/,
+  );
+  assert.equal(lifetime.root.querySelectorAll(".ma-license a").length, 1);
+  assert.equal(lifetime.root.querySelector(".ma-license-banner"), null);
+  lifetime.close();
+
+  // Without a key the panel says nothing about licences.
+  const free = page();
+  new LicenseInfo({ root: free.root, license: { mode: "free" } }).attach();
+  new LicenseInfo({ root: free.root, license: undefined }).attach();
+  assert.equal(
+    free.root.querySelector(".ma-license, .ma-license-banner"),
+    null,
+  );
+  free.close();
 });

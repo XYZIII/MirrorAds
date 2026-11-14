@@ -22,3 +22,5 @@ qa/
 
 # The hosted site is built by the host from mirrorads.js.
 /dist/
+# Written by the site build: holds the script key, never committed.
+/worker/generated/

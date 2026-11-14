@@ -11,6 +11,7 @@ import { buildDefaultCloneCampaignName } from "../domain/names.mjs";
 import { indexMediaFilesBySha256 } from "../media/media-hashes.mjs";
 import { getLang, setLang, t } from "./i18n.mjs";
 import { ICONS } from "./icons.mjs";
+import { LicenseInfo } from "./license-info.mjs";
 import { PageDock } from "./page-dock.mjs";
 import { WhatsNew } from "./whats-new.mjs";
 
@@ -297,6 +298,7 @@ export class PanelController {
     this.pageDock?.release();
     this.pageDock = new PageDock({ root }).attach();
     new WhatsNew({ root }).attach();
+    new LicenseInfo({ root }).attach();
 
     dom.root = root;
     dom.loadingOverlay = root.querySelector(`#${APP_ID}-loading`);

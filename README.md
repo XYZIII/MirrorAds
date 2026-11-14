@@ -27,22 +27,49 @@ MirrorAds clones Facebook Ads Manager campaigns between ad accounts from a side 
 
 ## Hosted install (one bookmark, automatic updates)
 
-`hosting/` holds the loader that becomes the bookmark and the install page.
-`node tools/build-site.mjs` turns the committed `mirrorads.js` into a static
-site in `dist/`:
+`hosting/` holds the loader that becomes the bookmark, the gate it downloads
+and the install page. `node tools/build-site.mjs` turns the committed
+`mirrorads.js` into a site in `dist/`:
 
 - `index.html` — the install page with the bookmark;
-- `mirrorads/latest/manifest.html` and `mirrorads/latest/og/chunk-*.html` —
-  the current build, published as link-preview pages.
+- `mirrorads/latest/manifest.html` and `mirrorads/latest/og/gate-*.html` —
+  the gate (`hosting/gate.js`), published as link-preview pages;
+- `mirrorads/latest/og/main-*.html` — the script itself, encrypted with
+  AES-256-GCM under a fresh key for every build;
+- `mirrorads/latest/loader.txt` — the loader with a `__LICENSE_KEY__` slot,
+  from which the cabinet makes personal bookmarks.
 
-Ads Manager refuses code and requests from outside sites, so the loader does
-not download the script from the host. Facebook reads the published pages
+It also writes `worker/generated/build.mjs` (never committed): the version,
+the script key and where the pieces are, for the licence server.
+
+Ads Manager refuses code and requests from outside sites, so nothing is
+downloaded from the host directly. Facebook reads the published pages
 itself, and the loader reads Facebook's copy through the Ads Manager session.
 Every browser asks Facebook to re-read the manifest at most once in 20
-minutes, so a new build reaches users on their own, and a script is only run
-when it matches the manifest's checksum.
+minutes, so a new build reaches users on their own, and nothing is run that
+does not match its checksum.
 
-On Cloudflare Pages: build command `node tools/build-site.mjs`, output
-directory `dist`. The site address is detected from the Pages environment;
-for a custom domain put `{"baseUrl": "https://your.domain"}` into
-`hosting/site.json` (or set `MIRRORADS_BASE_URL`).
+The gate checks the licence the same way: it asks Facebook to read
+`/l/<licence id>/<sealed request>` (or `/l/free/<nonce>` without a key). The
+request and the answer are encrypted with a key derived from the licence
+secret, which never travels. A pass carries the script key; it is saved for
+12 hours, re-checked in the background after that, and keeps the script
+running for up to 7 days when the check cannot be made.
+
+## Licences and payments
+
+`worker/` is the licence server (a Cloudflare Worker with one SQLite-backed
+Durable Object, so there is no database to create). It serves:
+
+- `/buy` — plans, promo codes, payment in crypto through OxaPay;
+- `/order/<id>/<code>` — the order page that shows the key once paid;
+- `/cabinet` — key status, renewal and the personal bookmark;
+- `/admin` — keys, payments, plans, promo codes and the switch that makes a
+  key required (off by default: everyone works without a key until then);
+- `/api/oxapay/webhook` — OxaPay's signed payment notifications.
+
+Cloudflare settings: build command `node tools/build-site.mjs`, deploy
+command `npx wrangler deploy`. Secrets (Settings → Variables and Secrets):
+`ADMIN_PASSWORD` for `/admin` (any user name), `OXAPAY_MERCHANT_KEY` for
+payments. The site address comes from `hosting/site.json` (or
+`MIRRORADS_BASE_URL`).

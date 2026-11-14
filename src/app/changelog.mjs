@@ -5,6 +5,20 @@
  */
 export const CHANGELOG = [
   {
+    version: "151126b2",
+    date: "2026-11-15",
+    ru: [
+      "Подписка по ключу: в меню ⚙ видно ваш ключ и до какого числа он действует. За 5 дней до конца появится напоминание с кнопкой «Продлить».",
+      "Кабинет на сайте: ключ, продление и личная закладка, в которой ключ уже записан, — её достаточно поставить в каждый браузер.",
+      "Ключ проверяется в фоне и не замедляет запуск. Без интернета MirrorAds работает по последней проверке до 7 дней.",
+    ],
+    en: [
+      "Subscription keys: the ⚙ menu shows your key and its end date. Five days before the end a reminder with a Renew button appears.",
+      "A cabinet on the site: your key, renewal and a personal bookmark with the key already inside — install it in every browser.",
+      "The key is checked in the background and does not slow the start. Offline, MirrorAds keeps working on the last check for up to 7 days.",
+    ],
+  },
+  {
     version: "151126b1",
     date: "2026-11-15",
     ru: [

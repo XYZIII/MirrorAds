@@ -1,13 +1,20 @@
 #!/usr/bin/env node
 // Builds the hosted site into dist/: the install page with the one-line
-// bookmark, and the pages Facebook reads to deliver updates.
+// bookmark, and the pages Facebook reads to deliver updates. It also writes
+// worker/generated/build.mjs, which tells the licence server which script is
+// published and the key that opens it.
 //
 //   node tools/build-site.mjs [--base-url=https://example.com] [--out=dist]
 //
-// It needs no dependencies and uses the committed mirrorads.js, so a static
-// host can run it as its build command. The site address comes from
-// --base-url, MIRRORADS_BASE_URL, hosting/site.json, or Cloudflare Pages.
-import { createHash } from "node:crypto";
+// It needs no dependencies and uses the committed mirrorads.js, so the host
+// can run it as its build command. The site address comes from --base-url,
+// MIRRORADS_BASE_URL, hosting/site.json, or Cloudflare Pages.
+//
+// What the bookmark loads, in order:
+//   1. the manifest, then the gate (hosting/gate.js) — public, plain;
+//   2. the gate checks the licence through Facebook and gets the script key;
+//   3. the script itself, published only encrypted (AES-256-GCM).
+import { createCipheriv, createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -68,8 +75,39 @@ try {
   // No esbuild (a host that skipped the install): the loader goes in as is.
 }
 
+const sha256 = (text) => createHash("sha256").update(text).digest("hex");
+const base64Url = (bytes) => Buffer.from(bytes).toString("base64url");
+const pad = (index) => String(index + 1).padStart(3, "0");
+
+function split(text) {
+  const parts = [];
+  for (let at = 0; at < text.length; at += CHUNK_SIZE) {
+    parts.push(text.slice(at, at + CHUNK_SIZE));
+  }
+  return parts;
+}
+
+/** The script encrypted with a fresh key: only a passed licence check opens it. */
+export function encryptScript(source, contentKey, iv) {
+  const cipher = createCipheriv("aes-256-gcm", contentKey, iv);
+  const sealed = Buffer.concat([
+    cipher.update(source, "utf8"),
+    cipher.final(),
+    cipher.getAuthTag(),
+  ]);
+  return sealed.toString("base64");
+}
+
 /** Everything the site consists of, as `{ "relative/path": content }`. */
-export function buildSite({ source, loaderSource, baseUrl, landing }) {
+export function buildSite({
+  source,
+  loaderSource,
+  gateSource,
+  baseUrl,
+  landing,
+  contentKey = randomBytes(32),
+  iv = randomBytes(12),
+}) {
   const build = source.match(/VERSION:\s*"([^"]+)"/)?.[1];
   if (!build) throw new Error("Cannot find the build version in mirrorads.js.");
   if (!/^https:\/\//.test(baseUrl)) {
@@ -77,50 +115,113 @@ export function buildSite({ source, loaderSource, baseUrl, landing }) {
       "The site address is unknown. Pass --base-url=https://… or set MIRRORADS_BASE_URL.",
     );
   }
-  const encoded = Buffer.from(source, "utf8").toString("base64");
-  const chunks = [];
-  for (let at = 0; at < encoded.length; at += CHUNK_SIZE) {
-    chunks.push(encoded.slice(at, at + CHUNK_SIZE));
-  }
-  const name = (index) => `chunk-${String(index + 1).padStart(3, "0")}`;
+  const og = `${baseUrl}/mirrorads/latest/og`;
   const manifestUrl = `${baseUrl}/mirrorads/latest/manifest`;
+
+  // The script: encrypted; its pieces are named by their checksum, so
+  // Facebook never holds an old copy under a current name.
+  const mainText = encryptScript(source, contentKey, iv);
+  const mainSha = sha256(mainText);
+  const mainParts = split(mainText);
+  const mainName = (index) => `main-${mainSha.slice(0, 12)}-${pad(index)}`;
+
+  // The gate: plain, with this site and build written in.
+  const gate = minify(
+    gateSource
+      .replaceAll("__BASE_URL__", baseUrl)
+      .replaceAll("__BUILD__", build),
+  );
+  if (/__BASE_URL__|__BUILD__/.test(gate)) {
+    throw new Error("hosting/gate.js still has a placeholder after the build.");
+  }
+  const gateSha = sha256(gate);
+  const gateParts = split(Buffer.from(gate, "utf8").toString("base64"));
+  const gateName = (index) => `gate-${gateSha.slice(0, 12)}-${pad(index)}`;
+
+  // The manifest keeps the first loader's format: what it calls the
+  // payload is the gate now, so bookmarks installed before keys still work.
   const manifest = {
     app: APP,
     version: build,
-    payload: {
-      sha256: createHash("sha256").update(source).digest("hex"),
-      byteLength: Buffer.byteLength(source, "utf8"),
-    },
-    chunks: chunks.map((_, index) => ({
+    payload: { sha256: gateSha, byteLength: Buffer.byteLength(gate, "utf8") },
+    chunks: gateParts.map((_, index) => ({
       index: index + 1,
-      url: `${baseUrl}/mirrorads/latest/og/${name(index)}`,
+      url: `${og}/${gateName(index)}`,
     })),
   };
-  const loader = loaderSource.replace("__MANIFEST_URL__", manifestUrl);
-  if (loader === loaderSource) {
+
+  const loader = minify(loaderSource.replace("__MANIFEST_URL__", manifestUrl));
+  if (
+    loader.includes("__MANIFEST_URL__") ||
+    !loaderSource.includes("__MANIFEST_URL__")
+  ) {
     throw new Error("hosting/loader.js has no __MANIFEST_URL__ placeholder.");
   }
-  const bookmark = `javascript:${encodeURIComponent(minify(loader))}`;
+  if (loader.split("__LICENSE_KEY__").length !== 2) {
+    throw new Error(
+      "hosting/loader.js must hold the __LICENSE_KEY__ placeholder once.",
+    );
+  }
+  // The install page's bookmark has no key; the cabinet writes one into
+  // loader.txt to make a personal bookmark.
+  const bookmark = `javascript:${encodeURIComponent(loader.replace("__LICENSE_KEY__", ""))}`;
   const files = {
     "index.html": landing
       .replaceAll("__BOOKMARK__", escapeHtml(bookmark))
-      .replaceAll("__BUILD__", escapeHtml(build)),
+      .replaceAll("__BUILD__", escapeHtml(build))
+      .replaceAll("__BASE_URL__", escapeHtml(baseUrl)),
     "mirrorads/latest/manifest.html": ogPage(
       `${APP} ${build} manifest`,
       Buffer.from(JSON.stringify(manifest), "utf8").toString("base64"),
     ),
-    "mirrorads/latest/info.json": `${JSON.stringify({ ...manifest, manifestUrl }, null, 2)}\n`,
+    "mirrorads/latest/loader.txt": loader,
+    "mirrorads/latest/info.json": `${JSON.stringify(
+      {
+        app: APP,
+        version: build,
+        manifestUrl,
+        gate: { sha256: gateSha, parts: gateParts.length },
+        main: { sha256: mainSha, parts: mainParts.length },
+      },
+      null,
+      2,
+    )}\n`,
     "404.html": "<!doctype html><title>404</title><p>Not found.</p>\n",
     // The pages change with every build and must never be served stale.
     _headers: "/*\n  Cache-Control: no-store\n",
   };
-  chunks.forEach((chunk, index) => {
-    files[`mirrorads/latest/og/${name(index)}.html`] = ogPage(
-      `${APP} ${build} chunk ${index + 1}/${chunks.length}`,
-      chunk,
+  gateParts.forEach((part, index) => {
+    files[`mirrorads/latest/og/${gateName(index)}.html`] = ogPage(
+      `${APP} ${build} gate ${index + 1}/${gateParts.length}`,
+      part,
     );
   });
-  return { files, build, manifestUrl, bookmark, chunks: chunks.length };
+  mainParts.forEach((part, index) => {
+    files[`mirrorads/latest/og/${mainName(index)}.html`] = ogPage(
+      `${APP} ${build} part ${index + 1}/${mainParts.length}`,
+      part,
+    );
+  });
+  const release = {
+    version: build,
+    contentKey: base64Url(contentKey),
+    main: { sha: mainSha, iv: base64Url(iv), parts: mainParts.length },
+  };
+  return {
+    files,
+    build,
+    manifestUrl,
+    bookmark,
+    chunks: gateParts.length,
+    parts: mainParts.length,
+    release,
+    buildModule: buildModule(release),
+  };
+}
+
+/** worker/generated/build.mjs: bundled into the Worker, never published. */
+export function buildModule(release) {
+  return `// Written by tools/build-site.mjs for each build. Do not edit or commit.\nexport const BUILD = ${JSON.stringify(release)};\n`;
 }
 
 /**
@@ -168,10 +269,14 @@ function main() {
     ? buildSite({
         source: read("mirrorads.js"),
         loaderSource: read("hosting/loader.js"),
+        gateSource: read("hosting/gate.js"),
         landing: read("hosting/index.html"),
         baseUrl,
       })
-    : { files: buildPlaceholder() };
+    : {
+        files: buildPlaceholder(),
+        buildModule: buildModule({ version: "", contentKey: "", main: null }),
+      };
   const out = path.resolve(ROOT, arg("out") || "dist");
   fs.rmSync(out, { recursive: true, force: true });
   for (const [file, content] of Object.entries(site.files)) {
@@ -179,6 +284,9 @@ function main() {
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, content);
   }
+  const generated = path.join(ROOT, "worker", "generated", "build.mjs");
+  fs.mkdirSync(path.dirname(generated), { recursive: true });
+  fs.writeFileSync(generated, site.buildModule);
   if (!baseUrl) {
     console.log(
       `${APP}: the site address is not set yet; a placeholder page was built. Put {"baseUrl": "https://…"} into hosting/site.json.`,
@@ -186,7 +294,7 @@ function main() {
     return;
   }
   console.log(
-    `${APP} ${site.build}: site built in ${path.relative(ROOT, out) || "."} (${site.chunks} chunk(s)).`,
+    `${APP} ${site.build}: site built in ${path.relative(ROOT, out) || "."} (gate: ${site.chunks} piece(s), script: ${site.parts} encrypted piece(s)).`,
   );
   console.log(`Manifest: ${site.manifestUrl}`);
 }

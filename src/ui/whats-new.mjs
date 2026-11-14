@@ -7,11 +7,17 @@ import { getLang, t } from "./i18n.mjs";
 
 export const SEEN_KEY = "mirrorads.whatsnew.seen.v1";
 
-/** Keys a brand-new user already has: written by the loader before the panel opens. */
+/**
+ * Keys a brand-new user already has: written by the loader and the gate
+ * before the panel opens.
+ */
 const FIRST_RUN_KEYS = new Set([
   SEEN_KEY,
   "mirrorads.loader.cache.v1",
   "mirrorads.loader.refresh.v1",
+  "mirrorads.license.key.v1",
+  "mirrorads.license.state.v1",
+  "mirrorads.app.cache.v2",
 ]);
 
 /** True when this browser has used MirrorAds before. */

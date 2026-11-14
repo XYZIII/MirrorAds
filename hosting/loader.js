@@ -6,11 +6,14 @@
   //
   // Ads Manager refuses code and requests from outside sites, so the script
   // is published as link-preview pages: Facebook reads them itself, and the
-  // loader reads Facebook's copy through the Ads Manager session.
+  // loader reads Facebook's copy through the Ads Manager session. What it
+  // downloads is the gate: it checks the licence and opens the script.
   const settings = Object.assign(
     {
       app: "MirrorAds",
       manifestUrl: "__MANIFEST_URL__",
+      // A personal bookmark from the cabinet carries the licence key here.
+      licenseKey: "__LICENSE_KEY__",
       cacheKey: "mirrorads.loader.cache.v1",
       refreshKey: "mirrorads.loader.refresh.v1",
       // How often one browser asks Facebook to re-read the published pages.
@@ -33,7 +36,13 @@
     alert(`${settings.app}: дождитесь окончания текущей операции.`);
     return;
   }
-  const guard = { loading: true, build: "", source: "", startedAt: Date.now() };
+  const guard = {
+    loading: true,
+    build: "",
+    source: "",
+    startedAt: Date.now(),
+    licenseKey: /^MA-/i.test(settings.licenseKey) ? settings.licenseKey : "",
+  };
   window[guardKey] = guard;
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

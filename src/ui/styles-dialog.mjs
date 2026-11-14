@@ -185,5 +185,27 @@ export function buildDialogStyles(A) {
       ${A} .ma-news-ver span { font-size: 11px; color: var(--ma-faint); }
       ${A} .ma-news ul { margin: 0; padding-left: 18px; }
       ${A} .ma-news li { margin: 5px 0; font-size: 13px; line-height: 1.5; color: #374151; }
+      /* ---- licence ---- */
+      ${A} .ma-menu .ma-license { margin: 4px 0; padding: 9px 10px; border-radius: 10px; background: var(--ma-soft); font-size: 12px; }
+      ${A} .ma-license-line { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+      ${A} .ma-license-line b { font: 700 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ma-ink); }
+      ${A} .ma-license-line span { color: var(--ma-muted); white-space: nowrap; }
+      ${A} .ma-license-links { display: flex; gap: 12px; margin-top: 4px; }
+      ${A} .ma-license a, ${A} .ma-license-banner a { color: var(--ma-lime-deep); font-weight: 600; text-decoration: none; }
+      ${A} .ma-license a:hover, ${A} .ma-license-banner a:hover { text-decoration: underline; }
+      ${A} .ma-license-banner {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 0 16px 8px;
+        padding: 8px 8px 8px 14px;
+        border-radius: 12px;
+        background: #fff7e0;
+        color: #92590a;
+        font-size: 12px;
+      }
+      ${A} .ma-license-banner span { flex: 1 1 auto; }
+      ${A} .ma-license-banner.ma-license-ended { background: #fee2e2; color: #b91c1c; }
+      ${A} .ma-license-banner .ma-icon { width: 26px; height: 26px; min-height: 0; }
     `;
 }

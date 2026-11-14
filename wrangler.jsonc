@@ -1,14 +1,27 @@
 {
-  // Cloudflare serves the static site built by `node tools/build-site.mjs`.
+  // Cloudflare runs the site built by `node tools/build-site.mjs` and the
+  // licence server in worker/.
   "name": "mirrorads",
+  "main": "worker/index.mjs",
   "compatibility_date": "2026-01-01",
   // The site lives on the project's own workers.dev address.
   "workers_dev": true,
   "preview_urls": false,
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
     // /mirrorads/latest/manifest serves manifest.html.
     "html_handling": "auto-trailing-slash",
-    "not_found_handling": "404-page"
-  }
+    "not_found_handling": "404-page",
+    // Only these addresses run the Worker; the rest is the static site.
+    // Keep in step with WORKER_ROUTES in worker/app.mjs.
+    "run_worker_first": ["/l/*", "/api/*", "/buy", "/cabinet", "/order/*", "/admin"]
+  },
+  // Licences, payments and settings live in one Durable Object's SQLite
+  // database: part of the Worker, nothing to create by hand.
+  "durable_objects": {
+    "bindings": [{ "name": "STORE", "class_name": "MirrorAdsStore" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["MirrorAdsStore"] }],
+  "observability": { "enabled": true }
 }
