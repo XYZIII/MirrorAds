@@ -126,9 +126,13 @@ export function sourceAccountLabel(accounts, sourceAccountId) {
 /** Variables for the campaign name template; unknown macros stay untouched. */
 /**
  * The creative name for {creo}. The operator writes the full creative name
- * into the ad, so the ads are the source of truth: the ad name that is part
- * of the campaign name wins (the longest one), then the first ad name. Only
- * a package without ads falls back to the tail of the campaign name.
+ * into the ad, so the ads are the source of truth:
+ * - one name on every ad: that name;
+ * - names that differ only in a trailing number: the shared part with the
+ *   range, "Shugairi_V1" + "Shugairi_V3" -> "Shugairi_V1-3";
+ * - names that differ otherwise: the part they share, "Shugairi";
+ * - nothing shared: the first ad name.
+ * Only a package without ads falls back to the tail of the campaign name.
  */
 export function pickCreativeName(sourceName, adNames, fallback = "") {
   const names = [
@@ -137,11 +141,36 @@ export function pickCreativeName(sourceName, adNames, fallback = "") {
     ),
   ];
   if (!names.length) return fallback;
-  const haystack = String(sourceName || "").toLowerCase();
-  const inName = names
-    .filter((name) => haystack.includes(name.toLowerCase()))
-    .sort((a, b) => b.length - a.length);
-  return inName[0] || names[0];
+  if (names.length === 1) return names[0];
+  let prefix = names[0];
+  for (const name of names) {
+    let length = 0;
+    while (
+      length < prefix.length &&
+      length < name.length &&
+      prefix[length] === name[length]
+    ) {
+      length += 1;
+    }
+    prefix = prefix.slice(0, length);
+  }
+  // A shared digit belongs to the numbers: V10 and V12 share "V", not "V1".
+  prefix = prefix.replace(/\d+$/, "");
+  const tails = names.map((name) => name.slice(prefix.length));
+  if (prefix && tails.every((tail) => /^\d+$/.test(tail))) {
+    const numbers = tails.map(Number);
+    return `${prefix}${Math.min(...numbers)}-${Math.max(...numbers)}`;
+  }
+  // Cut back to a whole word, then drop the separator left at the end.
+  const cut = Math.max(
+    prefix.lastIndexOf("_"),
+    prefix.lastIndexOf("-"),
+    prefix.lastIndexOf(" "),
+  );
+  const whole =
+    /[_\-\s]$/.test(prefix) || cut < 0 ? prefix : prefix.slice(0, cut);
+  const shared = whole.replace(/[_\-\s.]+$/, "");
+  return shared.length >= 2 ? shared : names[0];
 }
 
 export function buildNameTemplateVars({

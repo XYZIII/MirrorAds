@@ -283,7 +283,7 @@ const DICT = {
       "source name with the account marker (id, its first 4 digits or the account label) replaced by the full id of the target account (default)",
     "macros.id4": "first 4 digits of the target account id",
     "macros.parts":
-      "agent and geo are the 1st and 3rd parts of the source name split by _; creo is the creative name taken from the ad name",
+      "agent and geo are the 1st and 3rd parts of the source name split by _; creo is the creative name from the ads (Shugairi_V1-3 when they differ only in the number)",
     "macros.source": "source campaign name",
     "macros.account": "target account name",
     "macros.accountId": "target account id",
@@ -610,7 +610,7 @@ const DICT = {
       "название источника, где метка кабинета (id, его первые 4 цифры или имя кабинета) заменена на полный id целевого (по умолчанию)",
     "macros.id4": "первые 4 цифры id целевого кабинета",
     "macros.parts":
-      "agent и geo — 1-я и 3-я части названия источника по знаку _; creo — название креатива из названия объявления",
+      "agent и geo — 1-я и 3-я части названия источника по знаку _; creo — название креатива из объявлений (Shugairi_V1-3, если отличаются только номером)",
     "macros.source": "название кампании-источника",
     "macros.account": "название целевого кабинета",
     "macros.accountId": "id целевого кабинета",

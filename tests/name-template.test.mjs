@@ -213,23 +213,28 @@ test("a name typed for one account travels with that target only", () => {
 test("{creo} is the creative name written into the ad", async () => {
   const { pickCreativeName, renderCampaignName } =
     await import("../src/domain/name-template.mjs");
-  const ads = ["Shugairi_V3", "Shugairi_V3", "Shugairi_V1"];
-  // The ad named in the campaign wins over the first ad.
+  const pick = (names) => pickCreativeName("", names, "tail");
+  assert.equal(pick(["Shugairi_V1", "Shugairi_V1"]), "Shugairi_V1");
+  // Differ only in the number: the range.
   assert.equal(
-    pickCreativeName("JACK_PQ585SA_Shugairi_V1", ads, "V1"),
-    "Shugairi_V1",
+    pick(["Shugairi_V3", "Shugairi_V3", "Shugairi_V1"]),
+    "Shugairi_V1-3",
   );
-  // No ad name in the campaign name: the first ad.
-  assert.equal(pickCreativeName("JACK_PQ585SA_test", ads, "x"), "Shugairi_V3");
-  // No ads at all: the tail of the campaign name, as before.
-  assert.equal(pickCreativeName("A_B_C_D", [], "D"), "D");
+  assert.equal(pick(["Gina_V10", "Gina_V12", "Gina_V11"]), "Gina_V10-12");
+  // Differ otherwise: the shared part, cut at a whole word.
+  assert.equal(pick(["Shugairi_V1", "Shugairi_test"]), "Shugairi");
+  assert.equal(pick(["Shugairi_Vid", "Shugairi_Var"]), "Shugairi");
+  assert.equal(pick(["Shugairi V1", "Shugairi new"]), "Shugairi");
+  // Nothing in common: the first ad; no ads: the tail of the campaign name.
+  assert.equal(pick(["Gina_V1", "Mila_V2"]), "Gina_V1");
+  assert.equal(pick([]), "tail");
   assert.equal(
     renderCampaignName({
       template: "{account}_{creo}",
       sourceName: "JACK_PQ585SA_Shugairi_V1",
       account: { id: "1758609221900217", name: "PQ600" },
-      adNames: ads,
+      adNames: ["Shugairi_V3", "Shugairi_V3", "Shugairi_V1"],
     }).name,
-    "PQ600_Shugairi_V1",
+    "PQ600_Shugairi_V1-3",
   );
 });
