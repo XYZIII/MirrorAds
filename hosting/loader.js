@@ -69,12 +69,36 @@
   // fallback. Which of them the page may call differs between requests.
   const HOSTS = ["adsmanager-graph.facebook.com", "graph.facebook.com"];
 
+  /**
+   * Ads Manager replaces the page's own fetch with a wrapper that refuses
+   * requests it did not make itself. A blank frame still has the browser's
+   * original fetch, and it runs with the page's address and session.
+   */
+  function pageFetch() {
+    const id = "mirrorads-loader-fetch-frame";
+    try {
+      let frame = document.getElementById(id);
+      if (!frame || typeof frame.contentWindow?.fetch !== "function") {
+        frame = document.createElement("iframe");
+        frame.id = id;
+        frame.setAttribute("aria-hidden", "true");
+        frame.style.cssText =
+          "display:none!important;width:0;height:0;border:0;position:absolute;left:-9999px;";
+        document.documentElement.appendChild(frame);
+      }
+      const frameWindow = frame.contentWindow;
+      if (typeof frameWindow?.fetch === "function") {
+        return (url, init) => frameWindow.fetch(url, init);
+      }
+    } catch (_error) {
+      // No frame available: fall back to the page's fetch.
+    }
+    return (url, init) => fetch(url, init);
+  }
+
   async function request(url, init) {
     const response = await withTimeout(
-      fetch(
-        url,
-        Object.assign({ credentials: "include", cache: "no-store" }, init),
-      ),
+      pageFetch()(url, Object.assign({ credentials: "include" }, init)),
       "Facebook",
     );
     const text = (await response.text()).replace(/^for\s*\(;;\);\s*/, "");

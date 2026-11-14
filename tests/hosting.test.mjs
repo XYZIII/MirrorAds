@@ -127,6 +127,7 @@ function fakeFacebook() {
 async function runLoader(facebook, storage, built, { busy = false } = {}) {
   const ran = [];
   const alerts = [];
+  const frames = [];
   const window = {
     __accessToken: "TOKEN",
     MirrorAds: busy ? { state: { busy: true } } : undefined,
@@ -141,7 +142,9 @@ async function runLoader(facebook, storage, built, { busy = false } = {}) {
         storage[key] = String(value);
       },
     },
-    fetch: facebook.fetch,
+    fetch: async () => {
+      throw new TypeError("Failed to fetch");
+    },
     crypto: webcrypto,
     alert: (message) => alerts.push(message),
     console: { log() {}, warn() {}, error() {} },
@@ -168,7 +171,17 @@ async function runLoader(facebook, storage, built, { busy = false } = {}) {
           setTimeout(() => script.onload(), 0);
         },
       },
-      createElement: () => ({ remove() {} }),
+      // The blank frame carries the browser's own fetch; the page's fetch
+      // (context.fetch) is the wrapper that refuses the loader's requests.
+      documentElement: {
+        appendChild(frame) {
+          frames.push(frame);
+          frame.contentWindow = { fetch: facebook.fetch };
+        },
+      },
+      getElementById: () => frames[0] || null,
+      createElement: (name) =>
+        name === "iframe" ? { setAttribute() {}, style: {} } : { remove() {} },
     },
     Date,
     Promise,
