@@ -24,3 +24,25 @@ MirrorAds clones Facebook Ads Manager campaigns between ad accounts from a side 
 - `npm run check` runs lint, tests and the payload checks.
 - `npm run bump:build` sets the build version (`DDMMYYbN`).
 - `npm run bookmarks` regenerates the bookmark lines from `tools/local-loader.js`.
+
+## Hosted install (one bookmark, automatic updates)
+
+`hosting/` holds the loader that becomes the bookmark and the install page.
+`node tools/build-site.mjs` turns the committed `mirrorads.js` into a static
+site in `dist/`:
+
+- `index.html` — the install page with the bookmark;
+- `mirrorads/latest/manifest.html` and `mirrorads/latest/og/chunk-*.html` —
+  the current build, published as link-preview pages.
+
+Ads Manager refuses code and requests from outside sites, so the loader does
+not download the script from the host. Facebook reads the published pages
+itself, and the loader reads Facebook's copy through the Ads Manager session.
+Every browser asks Facebook to re-read the manifest at most once in 20
+minutes, so a new build reaches users on their own, and a script is only run
+when it matches the manifest's checksum.
+
+On Cloudflare Pages: build command `node tools/build-site.mjs`, output
+directory `dist`. The site address is detected from the Pages environment;
+for a custom domain put `{"baseUrl": "https://your.domain"}` into
+`hosting/site.json` (or set `MIRRORADS_BASE_URL`).

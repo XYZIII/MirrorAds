@@ -13,7 +13,8 @@
     "test": "node --test tests/*.test.mjs",
     "lint": "eslint src tests tools",
     "format": "prettier --write src tests eslint.config.mjs",
-    "bookmarks": "node tools/build-bookmarks.mjs"
+    "bookmarks": "node tools/build-bookmarks.mjs",
+    "build:site": "node tools/build-site.mjs"
   },
   "keywords": [
     "facebook-ads",

@@ -19,3 +19,6 @@ qa/
 *token*
 *secret*
 *password*
+
+# The hosted site is built by the host from mirrorads.js.
+/dist/
