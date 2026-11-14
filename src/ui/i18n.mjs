@@ -55,7 +55,7 @@ const DICT = {
     "rules.warn.objects":
       "Bound to specific campaigns of the source: the copy will apply to all objects of this level.",
     "rules.warn.money":
-      "Has money amounts: in an account with another currency the numbers stay the same.",
+      "Has money amounts: in an account with another currency they are converted at Meta's rate.",
     "rules.disabled": "Create switched off",
     "rules.go": "Copy {rules} rule(s) to {accounts} account(s)",
     "rules.confirm": "Create {rules} rule(s) in {accounts} account(s)?",
@@ -65,7 +65,8 @@ const DICT = {
     "rules.done":
       "Rules created: {created}. Already there: {skipped}. Failed: {failed}.",
     "rules.note.widened": '"{rule}" now applies to all objects of its level',
-    "rules.note.currency": '"{rule}" has amounts in the source currency',
+    "rules.note.converted":
+      '"{rule}": amounts converted to the account currency',
     "reports.period.today": "Today",
     "reports.period.yesterday": "Yesterday",
     "reports.period.last7": "7 days",
@@ -430,7 +431,7 @@ const DICT = {
     "rules.warn.objects":
       "Привязано к конкретным кампаниям источника: копия будет действовать на все объекты этого уровня.",
     "rules.warn.money":
-      "Есть суммы в деньгах: в кабинете с другой валютой числа останутся теми же.",
+      "Есть суммы в деньгах: в кабинете с другой валютой они пересчитаются по курсу Meta.",
     "rules.disabled": "Создать выключенными",
     "rules.go": "Скопировать правил: {rules} в кабинетов: {accounts}",
     "rules.confirm": "Создать правил: {rules} в кабинетах: {accounts}?",
@@ -441,7 +442,7 @@ const DICT = {
       "Правил создано: {created}. Уже были: {skipped}. Ошибок: {failed}.",
     "rules.note.widened":
       "«{rule}» теперь действует на все объекты своего уровня",
-    "rules.note.currency": "в «{rule}» суммы остались в валюте источника",
+    "rules.note.converted": "«{rule}»: суммы пересчитаны в валюту кабинета",
     "reports.period.today": "Сегодня",
     "reports.period.yesterday": "Вчера",
     "reports.period.last7": "7 дней",

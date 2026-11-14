@@ -10,6 +10,9 @@ export function registerRulesServices(services, { state, dom, overrides }) {
       get graphClient() {
         return services.graphClient;
       },
+      get reportService() {
+        return services.reportService;
+      },
       get logging() {
         return services.logging;
       },

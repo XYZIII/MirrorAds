@@ -1,8 +1,11 @@
 import {
   buildRulePayload,
+  convertRuleMoney,
+  moneyFactor,
   ruleNameSet,
   ruleUsesMoney,
 } from "../domain/ad-rules.mjs";
+import { currencyMinorUnits } from "../domain/clone-overrides.mjs";
 import { normalizeAccountId } from "../domain/ids.mjs";
 
 const FIELDS = "id,name,status,evaluation_spec,execution_spec,schedule_spec";
@@ -41,15 +44,29 @@ export class AdRuleService {
    * currency }). Returns one result per account:
    * `{ accountId, name, created, skipped, failed, errors, notes }`.
    */
+  /** Currency and Meta's rate to USD of an account; {} when unavailable. */
+  async money(accountId) {
+    try {
+      const meta =
+        await this.dependencies.reportService.loadAccountMeta(accountId);
+      return { currency: meta?.currency || "", ratio: meta?.ratio || 0 };
+    } catch (_error) {
+      return {};
+    }
+  }
+
   async cloneRules({
     rules,
     targets,
-    sourceCurrency = "",
+    sourceAccountId = "",
     disabled = false,
     onProgress,
   }) {
     const { log } = this.dependencies.logging;
     const results = [];
+    const needsMoney = rules.some((rule) => ruleUsesMoney(rule));
+    const sourceMoney =
+      needsMoney && sourceAccountId ? await this.money(sourceAccountId) : {};
     for (const [index, target] of targets.entries()) {
       const result = {
         accountId: String(target.accountId),
@@ -63,11 +80,14 @@ export class AdRuleService {
       results.push(result);
       try {
         const existing = ruleNameSet(await this.listRules(target.accountId));
-        const otherCurrency =
-          sourceCurrency &&
-          target.currency &&
-          String(target.currency).toUpperCase() !==
-            String(sourceCurrency).toUpperCase();
+        // Amounts keep their worth: $100 becomes the same money in VND.
+        const factor = needsMoney
+          ? moneyFactor(
+              sourceMoney,
+              await this.money(target.accountId),
+              currencyMinorUnits,
+            )
+          : 1;
         for (const rule of rules) {
           const { body, widened } = buildRulePayload(rule, { disabled });
           const key = body.name.trim().toLowerCase();
@@ -75,14 +95,23 @@ export class AdRuleService {
             result.skipped += 1;
             continue;
           }
+          if (factor === null && ruleUsesMoney(rule)) {
+            // Better no rule than one that stops at 100 dong instead of $100.
+            result.failed += 1;
+            result.errors.push(
+              `${body.name}: no exchange rate for this account.`,
+            );
+            continue;
+          }
+          const converted = convertRuleMoney(body, factor);
           try {
             await this.createRule(target.accountId, body);
             existing.add(key);
             result.created += 1;
             if (widened)
               result.notes.push({ kind: "widened", rule: body.name });
-            if (otherCurrency && ruleUsesMoney(rule)) {
-              result.notes.push({ kind: "currency", rule: body.name });
+            if (converted) {
+              result.notes.push({ kind: "converted", rule: body.name });
             }
             log(
               "info",

@@ -189,7 +189,7 @@ export class RulesView {
       results = await this.dependencies.adRuleService.cloneRules({
         rules,
         targets,
-        sourceCurrency: this.source()?.currency || "",
+        sourceAccountId: state.rulesSource,
         disabled: Boolean(state.rulesDisabled),
         onProgress: (done, total) => {
           state.rulesProgress = `${done}/${total}`;

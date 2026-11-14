@@ -8,9 +8,20 @@
 const OBJECT_ID_FIELD =
   /^(id|(campaign|adset|ad|adgroup)\.id|campaign_group\.id)$/;
 
-/** Filter fields whose values are money in the account currency. */
+/**
+ * Filter fields whose values are money in the account currency: spend, the
+ * cost-per metrics, budgets, bids and conversion values. ROAS is a ratio and
+ * frequencies, counts and percentages are plain numbers, so they are not.
+ */
 const MONEY_FIELD =
-  /(spent|spend|cost_per|cpc|cpm|cpp|budget|bid|purchase_roas|value)/i;
+  /(^|[._:])(spent|spend|cpc|cpm|cpp|cpa|bid_amount|[a-z_]*budget[a-z_]*)$|cost_per|_value$/i;
+
+function isMoneyField(field) {
+  const name = String(field || "");
+  return (
+    MONEY_FIELD.test(name) && !/roas/i.test(name) && !OBJECT_ID_FIELD.test(name)
+  );
+}
 
 const LEVEL_NAMES = { CAMPAIGN: "campaign", ADSET: "adset", AD: "ad" };
 
@@ -30,15 +41,12 @@ export function ruleTargetsObjects(rule) {
 
 /** True when a condition of the rule is an amount of money. */
 export function ruleUsesMoney(rule) {
-  const conditions = filters(rule).some(
-    (item) =>
-      MONEY_FIELD.test(item?.field || "") &&
-      !OBJECT_ID_FIELD.test(item?.field || ""),
-  );
+  const conditions = filters(rule).some((item) => isMoneyField(item?.field));
   const change = (rule?.execution_spec?.execution_options || []).some(
     (option) =>
       option?.field === "change_spec" &&
-      String(option?.value?.unit || "").toUpperCase() === "ACCOUNT_CURRENCY",
+      (String(option?.value?.unit || "").toUpperCase() === "ACCOUNT_CURRENCY" ||
+        Number(option?.value?.limit) > 0),
   );
   return conditions || change;
 }
@@ -111,4 +119,70 @@ export function ruleNameSet(rules) {
         .toLowerCase(),
     ),
   );
+}
+
+/**
+ * The multiplier that turns an amount of one account into the same money in
+ * another: both the exchange rate (Meta's ratio to USD) and the API's units
+ * (cents for USD, whole units for VND or JPY). 1 for the same currency, null
+ * when the currencies differ and a rate is missing.
+ */
+export function moneyFactor(from, to, minorUnits) {
+  const source = String(from?.currency || "").toUpperCase();
+  const target = String(to?.currency || "").toUpperCase();
+  if (!source || !target || source === target) return 1;
+  const sourceRatio = Number(from?.ratio);
+  const targetRatio = Number(to?.ratio);
+  if (!(sourceRatio > 0) || !(targetRatio > 0)) return null;
+  return (
+    (targetRatio / sourceRatio) * (minorUnits(target) / minorUnits(source))
+  );
+}
+
+function scaleMoney(value, factor) {
+  if (Array.isArray(value))
+    return value.map((item) => scaleMoney(item, factor));
+  if (value === null || value === "" || typeof value === "boolean")
+    return value;
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return value;
+  const scaled = Math.max(1, Math.round(numeric * factor));
+  return typeof value === "string" ? String(scaled) : scaled;
+}
+
+/**
+ * Converts every money amount of a rule request in place: money conditions,
+ * a budget or bid change given in the account currency, and the cap of a
+ * change. Returns how many amounts were converted.
+ */
+export function convertRuleMoney(body, factor) {
+  if (!(factor > 0) || factor === 1) return 0;
+  let converted = 0;
+  for (const item of body?.evaluation_spec?.filters || []) {
+    if (!isMoneyField(item?.field)) continue;
+    item.value = scaleMoney(item.value, factor);
+    converted += 1;
+  }
+  for (const option of body?.execution_spec?.execution_options || []) {
+    const spec = option?.field === "change_spec" ? option.value : null;
+    if (!spec || typeof spec !== "object") continue;
+    if (
+      String(spec.unit || "").toUpperCase() === "ACCOUNT_CURRENCY" &&
+      spec.amount !== undefined
+    ) {
+      // A change may be negative ("lower the budget by 5"): keep the sign.
+      const amount = Number(spec.amount);
+      if (Number.isFinite(amount) && amount !== 0) {
+        spec.amount =
+          Math.sign(amount) *
+          Math.max(1, Math.round(Math.abs(amount) * factor));
+        converted += 1;
+      }
+    }
+    if (Number(spec.limit) > 0) {
+      spec.limit = scaleMoney(spec.limit, factor);
+      converted += 1;
+    }
+  }
+  return converted;
 }
