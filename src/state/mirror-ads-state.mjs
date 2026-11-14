@@ -95,6 +95,9 @@ export class MirrorAdsState {
     this.reportSelected = {};
     // null, or { kind: "pause" | "budget", stage: "form" | "confirm" | "running" | "done", ... }
     this.reportAction = null;
+    this.reportOpen = "";
+    this.reportCamps = {};
+    this.reportArm = "";
     // null: not read from storage yet; "": follow the browser.
     this.reportViewerZone = null;
     this.reportCustom = null;

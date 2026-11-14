@@ -279,5 +279,78 @@ export function buildReportStyles(A) {
       }
       ${A} .ma-rep-more:hover { background: var(--ma-soft); color: var(--ma-ink); }
 
+      ${A} .ma-rep-camps button.ma-rep-toggle {
+        min-height: 0;
+        height: auto;
+        padding: 2px 8px;
+        border: 0;
+        border-radius: 999px;
+        background: #dcf7c0;
+        color: #1f6a10;
+        font-size: 11px;
+        font-weight: 600;
+        line-height: 1.5;
+        cursor: pointer;
+      }
+      ${A} .ma-rep-camps button.ma-rep-toggle:hover,
+      ${A} .ma-rep-camps button.ma-rep-toggle.is-open { background: var(--ma-lime); color: var(--ma-ink); }
+      ${A} .ma-rep-cl {
+        margin: -4px 0 8px 18px;
+        padding: 10px 12px;
+        border: 1px solid var(--ma-line);
+        border-top: 0;
+        border-radius: 0 0 14px 14px;
+        background: var(--ma-soft);
+      }
+      ${A} .ma-rep-cl-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 8px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--ma-muted);
+      }
+      ${A} .ma-rep-cl-note { font-size: 12px; color: var(--ma-muted); }
+      ${A} .ma-rep-camp {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 7px 10px;
+        margin-top: 4px;
+        border-radius: 10px;
+        background: #ffffff;
+      }
+      ${A} .ma-rep-camp > div { min-width: 0; }
+      ${A} .ma-rep-camp b {
+        display: block;
+        overflow: hidden;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--ma-ink);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      ${A} .ma-rep-camp small { display: block; font-size: 11px; color: var(--ma-muted); word-break: break-word; }
+      ${A} .ma-rep-camp small.ma-rep-err { color: #b91c1c; }
+      ${A} .ma-rep-camp.is-off b { color: var(--ma-faint); text-decoration: line-through; }
+      ${A} .ma-rep-offdone { flex: 0 0 auto; font-size: 11px; color: var(--ma-faint); }
+      ${A} button.ma-rep-offbtn {
+        flex: 0 0 auto;
+        min-height: 28px;
+        padding: 0 12px;
+        border: 1px solid #fecaca;
+        border-radius: 999px;
+        background: #ffffff;
+        color: #b91c1c;
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      ${A} button.ma-rep-offbtn:hover { background: #fef2f2; color: #b91c1c; }
+      ${A} button.ma-rep-offbtn.is-armed { border-color: #ef4444; background: #ef4444; color: #ffffff; }
+      ${A} button.ma-rep-offbtn:disabled { opacity: 0.6; cursor: default; }
     `;
 }

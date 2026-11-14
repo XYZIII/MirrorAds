@@ -1,3 +1,4 @@
+import { runPool } from "../utils/pool.mjs";
 import {
   applyBidFields,
   hasAdsetDayParting,
@@ -13,6 +14,9 @@ import { canReuseSourceAssetFeedId } from "../domain/package.mjs";
 import { adsetUsesValueRules } from "../domain/value-rules.mjs";
 
 /** DirectWriter. Dependencies are supplied by the application composition root. */
+/** Status checks and switches sent at the same time during activation. */
+const ACTIVATION_CONCURRENCY = 4;
+
 export class DirectWriter {
   constructor(dependencies) {
     this.dependencies = dependencies;
@@ -269,7 +273,15 @@ export class DirectWriter {
     const records = report.created.filter(
       (x) => ["campaign", "adset", "ad"].includes(x.type) && !x.removed,
     );
-    for (const item of records) {
+    // Checks and switches run a few at a time: one by one they took as long
+    // as creating the campaign itself.
+    const settle = async (items, work) => {
+      const failed = (await runPool(items, ACTIVATION_CONCURRENCY, work)).find(
+        (outcome) => outcome.error,
+      );
+      if (failed) throw failed.error;
+    };
+    await settle(records, async (item) => {
       const entity = await graphFetch(item.id, {
         query: { fields: "id,status,account_id" },
       });
@@ -282,18 +294,23 @@ export class DirectWriter {
           `Activation blocked: ${item.type} ${item.id} does not match the staged account/status.`,
         );
       }
-    }
+    });
     report.activation = "activating";
     try {
-      for (const type of ["ad", "adset", "campaign"])
-        for (const item of records.filter((x) => x.type === type)) {
-          if (type === "campaign" && !withCampaign) continue;
-          await graphFetch(item.id, {
-            method: "POST",
-            body: { status: "ACTIVE" },
-          });
-          item.status = "ACTIVE";
-        }
+      // Bottom up, the campaign last: nothing can deliver before it is on.
+      for (const type of ["ad", "adset", "campaign"]) {
+        if (type === "campaign" && !withCampaign) continue;
+        await settle(
+          records.filter((x) => x.type === type),
+          async (item) => {
+            await graphFetch(item.id, {
+              method: "POST",
+              body: { status: "ACTIVE" },
+            });
+            item.status = "ACTIVE";
+          },
+        );
+      }
       const result = await graphFetch(campaignId, {
         query: { fields: "id,status" },
       });

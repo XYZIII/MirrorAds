@@ -472,20 +472,26 @@ export class ImportWorkflow {
           state.importPackage.campaign,
         );
 
-        for (const adset of state.importPackage.adsets) {
-          const newAdsetId = await createAdset(
-            state.importAccountId,
-            newCampaignId,
-            adset,
-            pixelMap,
-            {
-              hasCampaignBudget: packageHasCampaignBudget,
-              campaignBidStrategy: state.importPackage.campaign?.bid_strategy,
-            },
-          );
-          adsetMap.set(String(adset.id), newAdsetId);
-          log("info", `Adset created: ${adset.name}`);
-        }
+        const adsetOutcomes = await runPool(
+          state.importPackage.adsets,
+          DIRECT_AD_CONCURRENCY,
+          async (adset) => {
+            const newAdsetId = await createAdset(
+              state.importAccountId,
+              newCampaignId,
+              adset,
+              pixelMap,
+              {
+                hasCampaignBudget: packageHasCampaignBudget,
+                campaignBidStrategy: state.importPackage.campaign?.bid_strategy,
+              },
+            );
+            adsetMap.set(String(adset.id), newAdsetId);
+            log("info", `Adset created: ${adset.name}`);
+          },
+        );
+        const failedAdset = adsetOutcomes.find((outcome) => outcome.error);
+        if (failedAdset) throw failedAdset.error;
 
         // Creating a creative and its ad takes Meta several seconds, so a few
         // ads are written at a time. A creative shared by several ads is still

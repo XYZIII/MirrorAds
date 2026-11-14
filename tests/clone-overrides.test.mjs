@@ -334,3 +334,49 @@ test("the pool limits concurrency, keeps order and waits for every item", async 
   );
   assert.deepEqual(await runPool([], 3, async () => 1), []);
 });
+
+test("the campaign list arms a button first and switches off on the second click", async () => {
+  const { ReportCampaigns } = await import("../src/ui/report-campaigns.mjs");
+  const paused = [];
+  const state = {
+    report: {
+      rows: [{ accountId: "11", activeCampaigns: 2, inactiveCampaigns: 1 }],
+      total: { activeCampaigns: 2 },
+    },
+  };
+  const list = new ReportCampaigns({
+    state,
+    render() {},
+    reportActions: {
+      listActiveCampaigns: async () => [
+        { id: "c1", name: "One", dailyBudget: 5000 },
+        { id: "c2", name: "Two", dailyBudget: 0 },
+      ],
+      pauseCampaign: async (id) => {
+        if (id === "c2") throw new Error("(#200) no permission");
+        paused.push(id);
+      },
+    },
+  });
+  assert.equal(list.handle("period", "today"), false);
+  list.handle("camps", "11");
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(state.reportCamps["11"].items.length, 2);
+
+  list.handle("coff", "c1");
+  assert.deepEqual(paused, [], "the first click only arms the button");
+  list.handle("coff", "c1");
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(paused, ["c1"]);
+  assert.equal(state.report.rows[0].activeCampaigns, 1);
+  assert.equal(state.report.rows[0].inactiveCampaigns, 2);
+  assert.equal(state.report.total.activeCampaigns, 1);
+
+  // "All" skips what is already off; a refusal stays visible on its row.
+  list.handle("call", "11");
+  list.handle("call", "11");
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(paused, ["c1"]);
+  assert.match(state.reportCamps["11"].items[1].error, /no permission/);
+  assert.equal(state.report.rows[0].activeCampaigns, 1);
+});

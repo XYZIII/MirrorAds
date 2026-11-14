@@ -14,6 +14,8 @@ export class ReportActions {
     this.dependencies = dependencies;
     this.pauseCampaigns = this.pauseCampaigns.bind(this);
     this.changeBudgets = this.changeBudgets.bind(this);
+    this.listActiveCampaigns = this.listActiveCampaigns.bind(this);
+    this.pauseCampaign = this.pauseCampaign.bind(this);
   }
 
   activeCampaigns(accountId, fields) {
@@ -23,6 +25,32 @@ export class ReportActions {
       effective_status: ACTIVE,
       limit: 500,
     });
+  }
+
+  /** Campaigns that are switched on in one account, for the Reports list. */
+  async listActiveCampaigns(accountId) {
+    const rows = await this.activeCampaigns(
+      normalizeAccountId(accountId),
+      "id,name,daily_budget",
+    );
+    return rows.map((row) => ({
+      id: String(row.id),
+      name: String(row.name || row.id),
+      dailyBudget: Number(row.daily_budget) || 0,
+    }));
+  }
+
+  /** Switches one campaign off; throws when Meta refuses. */
+  async pauseCampaign(campaignId) {
+    const { graphFetch } = this.dependencies.graphClient;
+    await graphFetch(String(campaignId), {
+      method: "POST",
+      body: { status: "PAUSED" },
+    });
+    this.dependencies.logging.log(
+      "info",
+      `Campaign ${campaignId} switched off from Reports.`,
+    );
   }
 
   /** Runs `work` for every account and never lets one account stop the rest. */

@@ -209,3 +209,27 @@ test("a name typed for one account travels with that target only", () => {
     "My own name 2",
   );
 });
+
+test("{creo} is the creative name written into the ad", async () => {
+  const { pickCreativeName, renderCampaignName } =
+    await import("../src/domain/name-template.mjs");
+  const ads = ["Shugairi_V3", "Shugairi_V3", "Shugairi_V1"];
+  // The ad named in the campaign wins over the first ad.
+  assert.equal(
+    pickCreativeName("JACK_PQ585SA_Shugairi_V1", ads, "V1"),
+    "Shugairi_V1",
+  );
+  // No ad name in the campaign name: the first ad.
+  assert.equal(pickCreativeName("JACK_PQ585SA_test", ads, "x"), "Shugairi_V3");
+  // No ads at all: the tail of the campaign name, as before.
+  assert.equal(pickCreativeName("A_B_C_D", [], "D"), "D");
+  assert.equal(
+    renderCampaignName({
+      template: "{account}_{creo}",
+      sourceName: "JACK_PQ585SA_Shugairi_V1",
+      account: { id: "1758609221900217", name: "PQ600" },
+      adNames: ads,
+    }).name,
+    "PQ600_Shugairi_V1",
+  );
+});

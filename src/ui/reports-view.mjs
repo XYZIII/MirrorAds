@@ -14,6 +14,7 @@ import {
 import { escapeHtml } from "../utils/string.mjs";
 import { t } from "./i18n.mjs";
 import { ICONS } from "./icons.mjs";
+import { ReportCampaigns } from "./report-campaigns.mjs";
 
 const PERIODS = ["today", "yesterday", "last7", "custom"];
 const STATUSES = ["all", "live", "dead"];
@@ -40,6 +41,14 @@ export class ReportsView {
     this.boundRoot = null;
     this.open = this.open.bind(this);
     this.render = this.render.bind(this);
+    const view = this;
+    this.campaigns = new ReportCampaigns({
+      state: dependencies.state,
+      get reportActions() {
+        return view.dependencies.reportActions;
+      },
+      render: () => this.render(),
+    });
   }
 
   get panel() {
@@ -128,6 +137,7 @@ export class ReportsView {
         this.handleAction(value);
         return;
       }
+      if (this.campaigns.handle(kind, value)) return;
       if (kind === "period" && PERIODS.includes(value)) {
         state.reportPeriod = value;
         // A custom period waits for its dates and the Show button.
@@ -388,6 +398,10 @@ export class ReportsView {
     const { state } = this.dependencies;
     const { log } = this.dependencies.logging;
     const requestId = ++this.requestId;
+    // Campaign lists belong to the report they were opened in.
+    state.reportOpen = "";
+    state.reportCamps = {};
+    state.reportArm = "";
     if (!state.sessionReady || !(state.accounts || []).length) {
       state.reportError = t("reports.waiting");
       this.render();
@@ -482,9 +496,15 @@ export class ReportsView {
       row.activeCampaigns === null || row.activeCampaigns === undefined
         ? ""
         : delivers
-          ? `<i class="ma-rep-on${row.activeCampaigns ? "" : " is-zero"}" title="${escapeHtml(t("reports.activeHint"))}">${escapeHtml(
-              t("reports.active", { count: row.activeCampaigns }),
-            )}</i><i class="ma-rep-off" title="${escapeHtml(t("reports.inactiveHint"))}">${escapeHtml(
+          ? `${
+              row.activeCampaigns
+                ? `<button type="button" class="ma-rep-on ma-rep-toggle${this.dependencies.state.reportOpen === row.accountId ? " is-open" : ""}" data-always-enabled data-report="camps:${escapeHtml(row.accountId)}" title="${escapeHtml(t("reports.camps.show"))}">${escapeHtml(
+                    t("reports.active", { count: row.activeCampaigns }),
+                  )} ▾</button>`
+                : `<i class="ma-rep-on is-zero" title="${escapeHtml(t("reports.activeHint"))}">${escapeHtml(
+                    t("reports.active", { count: 0 }),
+                  )}</i>`
+            }<i class="ma-rep-off" title="${escapeHtml(t("reports.inactiveHint"))}">${escapeHtml(
               t("reports.inactive", { count: row.inactiveCampaigns }),
             )}</i>`
           : row.activeCampaigns
@@ -516,7 +536,7 @@ export class ReportsView {
         <a class="ma-rep-open" href="https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${encodeURIComponent(
           row.accountId,
         )}" target="_blank" rel="noopener" title="${escapeHtml(t("reports.open"))}">${ICONS.open}</a>
-      </div>`;
+      </div>${this.campaigns.markup(row)}`;
   }
 
   render() {

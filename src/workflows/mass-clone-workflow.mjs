@@ -81,6 +81,7 @@ export class MassCloneWorkflow {
       mode: context.mode,
       index: context.index,
       date: context.date,
+      adNames: context.adNames,
     });
     if (result.autoMissed) {
       this.dependencies.logging.log(
@@ -343,6 +344,7 @@ export class MassCloneWorkflow {
         // Monotonic across the whole batch and across retries: a failed cabinet
         // still consumes its number, so names are never reused.
         index: this.nextSequence(),
+        adNames: (packageData?.ads || []).map((ad) => ad?.name),
       },
     );
     row.campaignName = state.cloneCampaignName;

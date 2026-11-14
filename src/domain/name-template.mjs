@@ -124,11 +124,32 @@ export function sourceAccountLabel(accounts, sourceAccountId) {
 }
 
 /** Variables for the campaign name template; unknown macros stay untouched. */
+/**
+ * The creative name for {creo}. The operator writes the full creative name
+ * into the ad, so the ads are the source of truth: the ad name that is part
+ * of the campaign name wins (the longest one), then the first ad name. Only
+ * a package without ads falls back to the tail of the campaign name.
+ */
+export function pickCreativeName(sourceName, adNames, fallback = "") {
+  const names = [
+    ...new Set(
+      (adNames || []).map((name) => String(name || "").trim()).filter(Boolean),
+    ),
+  ];
+  if (!names.length) return fallback;
+  const haystack = String(sourceName || "").toLowerCase();
+  const inName = names
+    .filter((name) => haystack.includes(name.toLowerCase()))
+    .sort((a, b) => b.length - a.length);
+  return inName[0] || names[0];
+}
+
 export function buildNameTemplateVars({
   sourceName = "",
   sourceAccountId = "",
   sourceAccountName = "",
   targetAccountId = "",
+  adNames = [],
 } = {}) {
   const parts = splitCampaignName(sourceName);
   const rebound = rebindAccountSegment(
@@ -143,7 +164,7 @@ export function buildNameTemplateVars({
     src_id4: accountIdPrefix(sourceAccountId),
     agent: parts.agent,
     geo: parts.geo,
-    creo: parts.creo,
+    creo: pickCreativeName(sourceName, adNames, parts.creo),
   };
   parts.segments.forEach((segment, index) => {
     vars[String(index + 1)] = segment;
@@ -166,6 +187,7 @@ export function renderCampaignName({
   mode = "",
   index = 0,
   date = "",
+  adNames = [],
 } = {}) {
   const fallback = sourceName || "Cloned campaign";
   const raw = String(template || "").trim() || DEFAULT_NAME_TEMPLATE;
@@ -175,6 +197,7 @@ export function renderCampaignName({
     sourceAccountId,
     sourceAccountName,
     targetAccountId,
+    adNames,
   });
   const vars = {
     ...naming.vars,

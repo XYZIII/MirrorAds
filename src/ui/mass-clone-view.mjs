@@ -482,6 +482,7 @@ export class MassCloneView {
       currency: this.accountCurrency(account),
       mode: state.massMode,
       index: 1,
+      adNames: (data?.ads || []).map((ad) => ad?.name),
     }).name;
   }
 
