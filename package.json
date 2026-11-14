@@ -1,6 +1,6 @@
 {
   "name": "mirrorads",
-  "version": "141126b7",
+  "version": "141126b8",
   "private": true,
   "description": "MirrorAds: clone Facebook Ads Manager campaigns between ad accounts, with value rules and per-account campaign names.",
   "scripts": {

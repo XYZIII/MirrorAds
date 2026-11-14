@@ -28,6 +28,9 @@ import { runPool } from "../utils/pool.mjs";
 /** Ad fragments of one draft written at the same time. */
 const DRAFT_AD_CONCURRENCY = 3;
 
+/** Ads (creative + ad) of one campaign published at the same time. */
+const DIRECT_AD_CONCURRENCY = 3;
+
 /** ImportWorkflow. Dependencies are supplied by the application composition root. */
 export class ImportWorkflow {
   constructor(dependencies) {
@@ -484,36 +487,59 @@ export class ImportWorkflow {
           log("info", `Adset created: ${adset.name}`);
         }
 
-        for (const ad of state.importPackage.ads) {
-          const creative = state.importPackage.creatives.find(
-            (item) => String(item.id) === String(ad?.creative?.id),
-          );
-          if (!creative) {
-            report.skip(ad, "Creative is missing from the package.");
-            log(
-              "warn",
-              `Ad ${ad.name} skipped: creative ${ad?.creative?.id} not found.`,
+        // Creating a creative and its ad takes Meta several seconds, so a few
+        // ads are written at a time. A creative shared by several ads is still
+        // created once, and every write finishes before a failure is raised.
+        const creativeJobs = new Map();
+        const adOutcomes = await runPool(
+          state.importPackage.ads,
+          DIRECT_AD_CONCURRENCY,
+          async (ad) => {
+            const creative = state.importPackage.creatives.find(
+              (item) => String(item.id) === String(ad?.creative?.id),
             );
-            continue;
-          }
-          if (!creativeMap.has(creative.id)) {
-            const creativeId = await resolveCreativeImport(
+            if (!creative) {
+              report.skip(ad, "Creative is missing from the package.");
+              log(
+                "warn",
+                `Ad ${ad.name} skipped: creative ${ad?.creative?.id} not found.`,
+              );
+              return;
+            }
+            if (!creativeJobs.has(creative.id)) {
+              creativeJobs.set(
+                creative.id,
+                resolveCreativeImport(
+                  state.importAccountId,
+                  creative,
+                  mediaCache,
+                ).then((creativeId) => {
+                  creativeMap.set(creative.id, creativeId || null);
+                  return creativeId || null;
+                }),
+              );
+            }
+            const newCreativeId = await creativeJobs.get(creative.id);
+            const newAdsetId = adsetMap.get(String(ad?.adset?.id));
+            if (!newCreativeId || !newAdsetId) {
+              report.skip(ad, "Creative or ad set was not prepared.");
+              log(
+                "warn",
+                `Ad ${ad.name} skipped: creative/adset not prepared.`,
+              );
+              return;
+            }
+            await createAd(
               state.importAccountId,
-              creative,
-              mediaCache,
+              newAdsetId,
+              ad,
+              newCreativeId,
             );
-            creativeMap.set(creative.id, creativeId || null);
-          }
-          const newCreativeId = creativeMap.get(creative.id);
-          const newAdsetId = adsetMap.get(String(ad?.adset?.id));
-          if (!newCreativeId || !newAdsetId) {
-            report.skip(ad, "Creative or ad set was not prepared.");
-            log("warn", `Ad ${ad.name} skipped: creative/adset not prepared.`);
-            continue;
-          }
-          await createAd(state.importAccountId, newAdsetId, ad, newCreativeId);
-          log("info", `Ad created: ${ad.name}`);
-        }
+            log("info", `Ad created: ${ad.name}`);
+          },
+        );
+        const failedAd = adOutcomes.find((outcome) => outcome.error);
+        if (failedAd) throw failedAd.error;
 
         if (!report.isComplete()) {
           report.issue(
@@ -534,8 +560,9 @@ export class ImportWorkflow {
           );
           await updateAdsetCreativeSequence(targetAdsetId, targetSequence);
         }
-        if (state.importStatus === "ACTIVE")
-          await activateCampaign(newCampaignId);
+        await activateCampaign(newCampaignId, {
+          campaign: state.importStatus === "ACTIVE",
+        });
         log("info", "Import complete.");
       }
       if (reloadOnSuccess) {

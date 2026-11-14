@@ -933,7 +933,12 @@ export function createServices({ state, dom, logger, overrides = {} }) {
       get initializeSession() {
         return services.sessionService.initializeSession;
       },
-      renderMassClone: () => services.massCloneView.render(),
+      // Buttons first: they are locked while a batch runs, and nothing else
+      // unlocks them once it ends. The view then applies its own rules.
+      renderMassClone: () => {
+        services.panelView?.renderButtons?.();
+        services.massCloneView.render();
+      },
       runOperation: () => false,
     });
   services.massCloneController =

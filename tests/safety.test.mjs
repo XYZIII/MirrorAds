@@ -395,6 +395,33 @@ test("ACTIVE creates paused hierarchy, verifies it, activates campaign last", as
   );
   assert.equal(f.state.operationReport.activation, "active");
 });
+test("PAUSED switches on ad sets and ads but leaves the campaign off", async () => {
+  const f = directFixture();
+  const c = await createHierarchy(f);
+  await f.writer.activateCampaign(c, { campaign: false });
+  assert.deepEqual(
+    f.calls.filter((x) => x.body?.status === "ACTIVE").map((x) => x.path),
+    ["3", "2"],
+  );
+  assert.equal(f.entities.get("1").status, "PAUSED");
+  assert.equal(f.state.operationReport.activation, "campaign_paused");
+});
+test("an ad that is off in the source stays off after activation", async () => {
+  const f = directFixture();
+  const c = await f.writer.createCampaign("A", {});
+  const s = await f.writer.createAdset(
+    "A",
+    c,
+    { name: "set", targeting: {} },
+    {},
+  );
+  await f.writer.createAd("A", s, { name: "ad", status: "PAUSED" }, "creative");
+  await f.writer.activateCampaign(c);
+  assert.deepEqual(
+    ["1", "2", "3"].map((id) => f.entities.get(id).status),
+    ["ACTIVE", "ACTIVE", "PAUSED"],
+  );
+});
 test("activation failure keeps campaign paused and incomplete hierarchy cannot activate", async () => {
   const f = directFixture(true);
   const c = await createHierarchy(f);
@@ -871,6 +898,7 @@ test("full import orchestration creates a complete paused result with an immutab
   const state = stateForImport();
   state.importStatus = "PAUSED";
   const calls = [];
+  const entities = new Map();
   let id = 0;
   const services = createServices({
     state,
@@ -898,9 +926,22 @@ test("full import orchestration creates a complete paused result with an immutab
       pixelService: { resolvePixelMap: async () => ({}) },
       creativeService: { resolveCreativeImport: async () => "creative" },
       graphClient: {
-        graphFetch: async (path, options) => {
+        graphFetch: async (path, options = {}) => {
           calls.push({ path, ...options });
-          return { id: String(++id) };
+          if (options.method === "POST" && path.startsWith("act_")) {
+            const entity = {
+              id: String(++id),
+              account_id: state.importAccountId,
+              ...options.body,
+            };
+            entities.set(entity.id, entity);
+            return entity;
+          }
+          if (options.method === "POST") {
+            Object.assign(entities.get(path), options.body);
+            return { success: true };
+          }
+          return { ...entities.get(path) };
         },
       },
     },
@@ -910,8 +951,14 @@ test("full import orchestration creates a complete paused result with an immutab
     true,
   );
   assert.equal(state.operationReport.isComplete(), true);
-  assert.equal(calls.length, 3);
-  assert.ok(calls.every((x) => x.body.status === "PAUSED"));
+  const created = calls.filter((x) => x.path.startsWith("act_"));
+  assert.equal(created.length, 3);
+  assert.ok(created.every((x) => x.body.status === "PAUSED"));
+  // PAUSED: the campaign stays off, the ad set and the ad are switched on.
+  assert.deepEqual(
+    [...entities.values()].map((x) => x.status),
+    ["PAUSED", "ACTIVE", "ACTIVE"],
+  );
 });
 test("empty imported packages fail visibly before session requests or writes", async () => {
   const state = stateForImport();

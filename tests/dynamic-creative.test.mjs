@@ -247,7 +247,11 @@ test("direct import writes the remapped sequence after creating creatives", asyn
             "act_200001/adsets": "target-adset",
             "act_200001/ads": "target-ad",
           };
-          return { id: ids[path] || path };
+          return {
+            id: ids[path] || path,
+            account_id: "200001",
+            status: "PAUSED",
+          };
         },
       },
     },

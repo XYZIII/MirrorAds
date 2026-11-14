@@ -215,6 +215,7 @@ export class DirectWriter {
     }
     state.operationReport?.record("adset", json.id, body.name, {
       status: "PAUSED",
+      sourceStatus: String(adset.status || ""),
       parentId: String(campaignId),
     });
     return String(json.id);
@@ -238,6 +239,7 @@ export class DirectWriter {
     });
     state.operationReport?.record("ad", json.id, body.name, {
       status: "PAUSED",
+      sourceStatus: String(ad.status || ""),
       parentId: String(adsetId),
     });
     return String(json.id);
@@ -250,7 +252,14 @@ export class DirectWriter {
     });
   }
 
-  async activateCampaign(campaignId) {
+  /**
+   * Switches the staged hierarchy on once it is complete. Ad sets and ads get
+   * the switch they have in the source (one that was off stays off); the
+   * campaign is switched on only for ACTIVE (`options.campaign !== false`),
+   * so a PAUSED clone is a campaign that is off with everything inside ready.
+   */
+  async activateCampaign(campaignId, options = {}) {
+    const withCampaign = options.campaign !== false;
     const { state } = this.dependencies;
     const { graphFetch } = this.dependencies.graphClient;
     const report = state.operationReport;
@@ -280,6 +289,10 @@ export class DirectWriter {
     try {
       for (const type of ["ad", "adset", "campaign"])
         for (const item of records.filter((x) => x.type === type)) {
+          if (
+            type === "campaign" ? !withCampaign : item.sourceStatus === "PAUSED"
+          )
+            continue;
           await graphFetch(item.id, {
             method: "POST",
             body: { status: "ACTIVE" },
@@ -289,9 +302,9 @@ export class DirectWriter {
       const result = await graphFetch(campaignId, {
         query: { fields: "id,status" },
       });
-      if (result.status !== "ACTIVE")
+      if (result.status !== (withCampaign ? "ACTIVE" : "PAUSED"))
         throw new Error("Campaign activation was not confirmed.");
-      report.activation = "active";
+      report.activation = withCampaign ? "active" : "campaign_paused";
     } catch (error) {
       report.activation = "needs_review";
       try {
