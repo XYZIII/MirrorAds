@@ -124,6 +124,10 @@ export class ReportsView {
       const target = event.target.closest?.("[data-report]");
       if (!target || !this.panel?.contains(target)) return;
       const [kind, value] = target.dataset.report.split(":");
+      if (kind === "act") {
+        this.handleAction(value);
+        return;
+      }
       if (kind === "period" && PERIODS.includes(value)) {
         state.reportPeriod = value;
         // A custom period waits for its dates and the Show button.
@@ -151,12 +155,226 @@ export class ReportsView {
       }
     });
     root.addEventListener("change", (event) => {
+      const { state } = this.dependencies;
+      const pick = event.target.closest?.("[data-report-pick]");
+      if (pick && this.panel?.contains(pick)) {
+        const selected = { ...(state.reportSelected || {}) };
+        if (pick.checked) selected[pick.dataset.reportPick] = true;
+        else delete selected[pick.dataset.reportPick];
+        state.reportSelected = selected;
+        if (!this.selectedRows().length) state.reportAction = null;
+        this.render();
+        return;
+      }
+      const pickAll = event.target.closest?.("[data-report-pick-all]");
+      if (pickAll && this.panel?.contains(pickAll)) {
+        const selected = { ...(state.reportSelected || {}) };
+        for (const box of this.panel.querySelectorAll("[data-report-pick]")) {
+          if (pickAll.checked) selected[box.dataset.reportPick] = true;
+          else delete selected[box.dataset.reportPick];
+        }
+        state.reportSelected = selected;
+        if (!this.selectedRows().length) state.reportAction = null;
+        this.render();
+        return;
+      }
       const select = event.target.closest?.("[data-report-viewer-zone]");
       if (!select || !this.panel?.contains(select)) return;
       this.readCustomInputs();
       this.setViewerZone(select.value);
       this.load();
     });
+  }
+
+  /** Rows of the current report that are ticked. */
+  selectedRows() {
+    const { state } = this.dependencies;
+    const selected = state.reportSelected || {};
+    return (state.report?.rows || []).filter((row) => selected[row.accountId]);
+  }
+
+  /**
+   * The bulk action bar is a small state machine: pick an action, fill in the
+   * budget if needed, confirm, run, read the outcome. Nothing is written to
+   * Meta before the confirm step.
+   */
+  async handleAction(step) {
+    const { state } = this.dependencies;
+    const action = state.reportAction;
+    if (step === "cancel" || step === "close") {
+      state.reportAction = null;
+    } else if (step === "clear") {
+      state.reportSelected = {};
+      state.reportAction = null;
+    } else if (step === "pause") {
+      state.reportAction = { kind: "pause", stage: "confirm" };
+    } else if (step === "budget") {
+      state.reportAction = {
+        kind: "budget",
+        stage: "form",
+        mode: "set",
+        value: "",
+        error: "",
+      };
+    } else if (step === "mode-set" || step === "mode-percent") {
+      if (action?.kind === "budget") {
+        action.value = this.budgetInput();
+        action.mode = step === "mode-set" ? "set" : "percent";
+        action.error = "";
+      }
+    } else if (step === "next" && action?.kind === "budget") {
+      action.value = this.budgetInput();
+      const value = Number(String(action.value).replace(",", "."));
+      const valid =
+        Number.isFinite(value) &&
+        (action.mode === "set" ? value > 0 : value > -100 && value !== 0);
+      action.error = valid ? "" : t(`reports.act.invalid.${action.mode}`);
+      if (valid) {
+        action.number = value;
+        action.stage = "confirm";
+      }
+    } else if (step === "run" && action?.stage === "confirm") {
+      await this.runAction(action);
+      return;
+    }
+    this.render();
+  }
+
+  budgetInput() {
+    return (
+      this.panel?.querySelector("[data-report-budget]")?.value?.trim() || ""
+    );
+  }
+
+  async runAction(action) {
+    const { state } = this.dependencies;
+    const rows = this.selectedRows();
+    action.stage = "running";
+    action.progress = `0/${rows.length}`;
+    this.render();
+    const onProgress = (done, total) => {
+      action.progress = `${done}/${total}`;
+      this.render();
+    };
+    let results = [];
+    try {
+      results =
+        action.kind === "pause"
+          ? await this.dependencies.reportActions.pauseCampaigns(
+              rows,
+              onProgress,
+            )
+          : await this.dependencies.reportActions.changeBudgets(
+              rows,
+              { mode: action.mode, value: action.number },
+              onProgress,
+            );
+    } catch (error) {
+      results = [
+        {
+          name: "",
+          changed: 0,
+          failed: 1,
+          skipped: "",
+          errors: [String(error?.message || error)],
+        },
+      ];
+    }
+    action.stage = "done";
+    action.changed = results.reduce((sum, item) => sum + item.changed, 0);
+    action.failed = results.reduce((sum, item) => sum + item.failed, 0);
+    action.skipped = results.filter((item) => item.skipped).length;
+    action.errors = results
+      .flatMap((item) =>
+        item.errors.map((message) => `${item.name}: ${message}`),
+      )
+      .slice(0, 4);
+    state.reportAction = action;
+    this.render();
+    // The numbers on screen are stale now: read the accounts again.
+    await this.load();
+  }
+
+  /** The bar under the status filter; empty until an account is ticked. */
+  actionBar() {
+    const { state } = this.dependencies;
+    const rows = this.selectedRows();
+    const action = state.reportAction;
+    if (!rows.length && action?.stage !== "done") return "";
+    const working = rows.filter((row) => accountDelivers(row.health));
+    const skipped = rows.length - working.length;
+    const campaigns = working.reduce(
+      (sum, row) => sum + (Number(row.activeCampaigns) || 0),
+      0,
+    );
+    const button = (step, label, cls = "ma-secondary") =>
+      `<button type="button" class="${cls}" data-always-enabled data-report="act:${step}">${escapeHtml(label)}</button>`;
+    let body = "";
+    if (!action) {
+      body = `<span class="ma-rep-acttext">${escapeHtml(t("reports.act.selected", { count: rows.length }))}</span>
+        ${button("pause", t("reports.act.pause"), "ma-danger")}
+        ${button("budget", t("reports.act.budget"))}
+        ${button("clear", t("reports.act.clear"), "ma-rep-link")}`;
+    } else if (action.stage === "form") {
+      body = `<div class="ma-seg" role="group">
+          <button type="button" data-always-enabled data-report="act:mode-set" class="${action.mode === "set" ? "is-on" : ""}">${escapeHtml(t("reports.act.modeSet"))}</button>
+          <button type="button" data-always-enabled data-report="act:mode-percent" class="${action.mode === "percent" ? "is-on" : ""}">${escapeHtml(t("reports.act.modePercent"))}</button>
+        </div>
+        <input type="text" inputmode="decimal" data-report-budget value="${escapeHtml(action.value || "")}" placeholder="${escapeHtml(
+          t(
+            action.mode === "set"
+              ? "reports.act.placeholderSet"
+              : "reports.act.placeholderPercent",
+          ),
+        )}" />
+        ${button("next", t("reports.act.next"), "ma-primary")}
+        ${button("cancel", t("reports.act.cancel"), "ma-rep-link")}
+        ${action.error ? `<div class="ma-rep-acterr">${escapeHtml(action.error)}</div>` : ""}`;
+    } else if (action.stage === "confirm") {
+      const question =
+        action.kind === "pause"
+          ? t("reports.act.confirmPause", {
+              campaigns,
+              accounts: working.length,
+            })
+          : t(
+              action.mode === "set"
+                ? "reports.act.confirmSet"
+                : "reports.act.confirmPercent",
+              {
+                value: action.number,
+                campaigns,
+                accounts: working.length,
+              },
+            );
+      body = `<span class="ma-rep-acttext"><b>${escapeHtml(question)}</b>${
+        skipped
+          ? ` ${escapeHtml(t("reports.act.skipNote", { count: skipped }))}`
+          : ""
+      }</span>
+        ${button("run", t(action.kind === "pause" ? "reports.act.yesPause" : "reports.act.yesBudget"), action.kind === "pause" ? "ma-danger" : "ma-primary")}
+        ${button("cancel", t("reports.act.cancel"), "ma-rep-link")}`;
+    } else if (action.stage === "running") {
+      body = `<span class="ma-rep-acttext">${escapeHtml(t("reports.act.running"))} ${escapeHtml(action.progress || "")}</span>`;
+    } else {
+      body = `<span class="ma-rep-acttext"><b>${escapeHtml(
+        t(
+          action.kind === "pause"
+            ? "reports.act.donePause"
+            : "reports.act.doneBudget",
+          {
+            changed: action.changed,
+          },
+        ),
+      )}</b>${action.failed ? ` ${escapeHtml(t("reports.act.doneFailed", { count: action.failed }))}` : ""}${
+        action.skipped
+          ? ` ${escapeHtml(t("reports.act.doneSkipped", { count: action.skipped }))}`
+          : ""
+      }</span>
+        ${button("close", t("reports.act.ok"))}
+        ${(action.errors || []).map((message) => `<div class="ma-rep-acterr">${escapeHtml(message)}</div>`).join("")}`;
+    }
+    return `<div class="ma-rep-actbar${action?.stage === "confirm" ? " is-confirm" : ""}">${body}</div>`;
   }
 
   /** Called when the tab is shown: loads once, then keeps what is on screen. */
@@ -282,6 +500,11 @@ export class ReportsView {
       row.spendUsd === null && row.spend > 0 ? null : row.spendUsd;
     return `
       <div class="ma-rep-row${row.spend > 0 || running > 0 ? "" : " ma-rep-zero"}${delivers ? "" : " ma-rep-dead"}">
+        <input type="checkbox" class="ma-rep-pick" data-always-enabled data-report-pick="${escapeHtml(row.accountId)}" ${
+          this.dependencies.state.reportSelected?.[row.accountId]
+            ? "checked"
+            : ""
+        } title="${escapeHtml(t("reports.act.pick"))}" />
         <div class="ma-rep-acct">
           <b title="${escapeHtml(row.name)}">${escapeHtml(row.name)}</b>
           <span>${escapeHtml(row.accountId)}${zone ? ` · ${escapeHtml(zone)}` : ""}</span>
@@ -437,7 +660,14 @@ export class ReportsView {
           : ""
       }
       ${statusFilter}
+      ${this.actionBar()}
       <div class="ma-rep-head">
+        <input type="checkbox" class="ma-rep-pick" data-always-enabled data-report-pick-all ${
+          visible.length &&
+          visible.every((row) => state.reportSelected?.[row.accountId])
+            ? "checked"
+            : ""
+        } title="${escapeHtml(t("reports.act.pickAll"))}" />
         <span>${escapeHtml(t("reports.account"))}</span>
         <span>${escapeHtml(t("reports.spend"))}</span>
         <span>${escapeHtml(t("reports.leads"))} / ${escapeHtml(t("reports.cpl"))}</span>

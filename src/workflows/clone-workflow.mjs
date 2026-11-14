@@ -2,6 +2,10 @@ import { buildDefaultCloneCampaignName } from "../domain/names.mjs";
 import { getSourceCatalogsFromPackage } from "../domain/package.mjs";
 import { assignLocalFiles } from "../media/media-matching.mjs";
 import { withConvertedBudgets } from "../domain/currency.mjs";
+import {
+  applyCloneOverrides,
+  describeOverrideNote,
+} from "../domain/clone-overrides.mjs";
 import { normalizeImportOptions } from "../domain/options.mjs";
 
 /** CloneWorkflow. Dependencies are supplied by the application composition root. */
@@ -205,8 +209,17 @@ export class CloneWorkflow {
       const packageData = withManualSourceCatalog(
         await ensureClonePackageLoaded(),
       );
+      // The operator's budget, bid and start time are applied in the source
+      // currency first, so they are converted like the source's own values.
+      const overridden = applyCloneOverrides(packageData, state.massOverrides, {
+        currency: state.cloneCurrency || packageData.source?.currency,
+        timeZone: state.cloneOverrideZone,
+      });
+      for (const note of overridden.notes) {
+        log(note.level, describeOverrideNote(note));
+      }
       const packageForImport = withConvertedBudgets(
-        packageData,
+        overridden.packageData,
         state.cloneCurrencyRate,
       );
       state.cloneCampaignName = requestedName || state.cloneCampaignName;

@@ -307,6 +307,23 @@ export class MassCloneWorkflow {
     this.applyPixelChoice(packageData, target.pixelId);
     this.applyPageChoice(packageData, target.pageId);
     this.applyCatalogChoice(packageData, target.catalogId);
+    // A start time is typed once and means that clock time in every account.
+    state.cloneOverrideZone = "";
+    if (String(state.massOverrides?.start || "").trim()) {
+      try {
+        state.cloneOverrideZone = (
+          await this.dependencies.reportService.loadAccountMeta(
+            target.accountId,
+          )
+        ).timeZone;
+      } catch (error) {
+        log(
+          "warn",
+          `Could not read the time zone of ${target.name}; the start time override is skipped for it.`,
+          String(error?.message || error),
+        );
+      }
+    }
     state.cloneTargetAccountId = target.accountId;
     state.cloneAsDraft =
       state.massMode !== "PAUSED" && state.massMode !== "ACTIVE";

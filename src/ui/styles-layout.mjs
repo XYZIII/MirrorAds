@@ -602,6 +602,52 @@ export function buildLayoutStyles(appId) {
       }
       ${A} .ma-footer.ma-hidden { display: none; }
       ${A} .ma-footer .ma-row { margin-bottom: 12px; }
+      ${A} .ma-overrides { margin: 0 0 12px; }
+      ${A} .ma-ovr-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        width: 100%;
+        min-height: 36px;
+        padding: 0 12px;
+        border: 1px dashed #cfd3db;
+        border-radius: 10px;
+        background: transparent;
+        color: var(--ma-ink);
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      ${A} .ma-ovr-toggle:hover { background: var(--ma-soft); color: var(--ma-ink); }
+      ${A} .ma-ovr-toggle em {
+        min-width: 0;
+        font-style: normal;
+        font-weight: 500;
+        color: var(--ma-muted);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      ${A} .ma-ovr-toggle.is-set { border-style: solid; border-color: #a6e060; background: #f8fdf0; }
+      ${A} .ma-ovr-toggle.is-set em { color: var(--ma-lime-deep); font-weight: 600; }
+      ${A} .ma-ovr-body { margin-top: 10px; }
+      ${A} .ma-ovr-body .ma-row { margin-bottom: 6px; }
+      ${A} .ma-ovr-body input { width: 100%; }
+      ${A} .ma-ovr-note { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+      ${A} .ma-ovr-note span { font-size: 11px; line-height: 1.4; color: var(--ma-muted); }
+      ${A} .ma-ovr-clear {
+        flex: 0 0 auto;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: var(--ma-muted);
+        font-size: 11px;
+        font-weight: 600;
+        text-decoration: underline;
+        cursor: pointer;
+      }
+      ${A} .ma-ovr-clear:hover { background: transparent; color: var(--ma-ink); }
       ${A} .ma-launch { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
       ${A} .ma-launch .ma-hint { flex: 1 1 auto; min-width: 0; }
       ${A} .ma-launch .ma-primary {
@@ -768,17 +814,81 @@ export function buildLayoutStyles(appId) {
       ${A} .ma-rep-head,
       ${A} .ma-rep-row {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 104px 92px 92px 34px;
+        grid-template-columns: 18px minmax(0, 1fr) 88px 76px 84px 34px;
         align-items: center;
         column-gap: 10px;
       }
+      ${A} .ma-ovr-body .ma-row { display: grid; grid-template-columns: 1fr 1fr 1.25fr; gap: 10px; }
+      ${A} .ma-ovr-body .ma-row > .ma-field { min-width: 0; margin: 0; }
+      ${A} .ma-ovr-body .ma-row input { width: 100%; min-width: 0; box-sizing: border-box; }
+      ${A} .ma-ovr-body .ma-row { align-items: end; }
+      ${A} .ma-ovr-body input[type="datetime-local"] {
+        height: 40px;
+        padding: 0 8px;
+        border: 1px solid var(--ma-line);
+        border-radius: 10px;
+        background: #ffffff;
+        color: var(--ma-ink);
+        font: inherit;
+        font-size: 12px;
+      }
+      ${A} input.ma-rep-pick {
+        appearance: auto;
+        -webkit-appearance: auto;
+        width: 16px;
+        height: 16px;
+        margin: 0;
+        padding: 0;
+        border-radius: 4px;
+        accent-color: #6dbb2a;
+        cursor: pointer;
+      }
+      ${A} .ma-rep-actbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin: 0 0 12px;
+        padding: 10px 12px;
+        border-radius: 14px;
+        background: #111827;
+        color: #ffffff;
+      }
+      ${A} .ma-rep-actbar.is-confirm { background: #3b1d1d; }
+      ${A} .ma-rep-acttext { flex: 1 1 90px; min-width: 0; font-size: 12px; color: #d1d5db; }
+      ${A} .ma-rep-acttext b { color: #ffffff; font-weight: 600; }
+      ${A} .ma-rep-actbar button.ma-secondary,
+      ${A} .ma-rep-actbar button.ma-danger,
+      ${A} .ma-rep-actbar button.ma-primary { min-height: 32px; padding: 0 14px; font-size: 12px; }
+      ${A} .ma-rep-actbar button.ma-secondary { border-color: #374151; background: transparent; color: #ffffff; }
+      ${A} .ma-rep-actbar button.ma-secondary:hover { background: #1f2937; color: #ffffff; border-color: #4b5563; }
+      ${A} .ma-rep-actbar button.ma-danger { border-color: #f87171; background: #ef4444; color: #ffffff; }
+      ${A} .ma-rep-actbar button.ma-danger:hover { background: #dc2626; color: #ffffff; }
+      ${A} .ma-rep-link {
+        min-height: 0;
+        padding: 0 4px;
+        border: 0;
+        background: transparent;
+        color: #9ca3af;
+        font-size: 12px;
+        font-weight: 600;
+        text-decoration: underline;
+        cursor: pointer;
+      }
+      ${A} .ma-rep-link:hover { background: transparent; color: #ffffff; }
+      ${A} .ma-rep-actbar .ma-seg { background: #1f2937; }
+      ${A} .ma-rep-actbar .ma-seg button { color: #9ca3af; }
+      ${A} .ma-rep-actbar .ma-seg button:hover { color: #ffffff; }
+      ${A} .ma-rep-actbar .ma-seg button.is-on { background: #374151; color: #ffffff; box-shadow: none; }
+      ${A} .ma-rep-actbar input[type="text"] { flex: 0 0 110px; width: 110px; height: 32px; }
+      ${A} .ma-rep-acterr { flex: 1 1 100%; font-size: 11px; color: #fca5a5; word-break: break-word; }
       ${A} .ma-rep-head {
         padding: 0 12px 6px;
         font-size: 11px;
         font-weight: 500;
         color: var(--ma-faint);
       }
-      ${A} .ma-rep-head span:not(:first-child) { text-align: right; }
+      ${A} .ma-rep-head span:not(:first-of-type) { text-align: right; }
       ${A} .ma-rep-row {
         margin: 0 0 6px;
         padding: 10px 12px;

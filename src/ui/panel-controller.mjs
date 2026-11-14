@@ -239,6 +239,7 @@ export class PanelController {
         </div>
 
         <div class="ma-footer ma-hidden" id="${APP_ID}-clone-footer">
+          <div class="ma-overrides" id="${APP_ID}-clone-overrides"></div>
           <div class="ma-row">
             <label class="ma-field ma-grow">
               <span>${t("field.template")}

@@ -282,6 +282,30 @@ export class MassCloneController {
     if (!root) return;
     if (this.boundRoot === root) return;
     this.boundRoot = root;
+    // The "change on clone" strip lives in the footer, outside the list.
+    root.addEventListener("input", (event) => {
+      const key = event.target?.dataset?.override;
+      if (!key) return;
+      state.massOverrides = {
+        ...(state.massOverrides || {}),
+        [key]: event.target.value,
+      };
+    });
+    root.addEventListener("change", (event) => {
+      // Leaving a field refreshes the summary line.
+      if (event.target?.dataset?.override) {
+        this.dependencies.massCloneView.renderOverrides();
+      }
+    });
+    root.addEventListener("click", (event) => {
+      if (event.target.closest?.("[data-override-toggle]")) {
+        state.massOverridesOpen = !state.massOverridesOpen;
+        this.dependencies.massCloneView.renderOverrides();
+      } else if (event.target.closest?.("[data-override-clear]")) {
+        state.massOverrides = { budget: "", bid: "", start: "" };
+        this.dependencies.massCloneView.renderOverrides(true);
+      }
+    });
     const list = dom.cloneTargetsBody;
     if (list) {
       list.addEventListener("change", (event) => {

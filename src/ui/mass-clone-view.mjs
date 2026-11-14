@@ -1,6 +1,7 @@
 import { assessAccountHealth } from "../accounts/account-health.mjs";
-import { cloneToLabel, smallLabel, statLabel, t } from "./i18n.mjs";
+import { cloneToLabel, getLang, smallLabel, statLabel, t } from "./i18n.mjs";
 import { escapeHtml } from "../utils/string.mjs";
+import { hasCloneOverrides, parseAmount } from "../domain/clone-overrides.mjs";
 import {
   renderCampaignName,
   sourceAccountLabel,
@@ -590,9 +591,75 @@ export class MassCloneView {
     }
   }
 
+  /**
+   * The "change on clone" strip above the name template: daily budget, bid and
+   * start time for every clone of the run. It is rebuilt only when its shape
+   * changes, so typing in its fields is never interrupted by other renders.
+   */
+  renderOverrides(force = false) {
+    const { state, dom, appId } = this.dependencies;
+    const box = dom.root?.querySelector(`#${appId}-clone-overrides`);
+    if (!box) return;
+    const overrides = state.massOverrides || {};
+    const currency =
+      state.clonePackage?.source?.currency || this.sourceCurrency() || "";
+    const filled = hasCloneOverrides(overrides);
+    const key = `${state.massOverridesOpen ? 1 : 0}|${currency}|${filled ? 1 : 0}|${getLang()}`;
+    if (!force && this.overridesKey === key && box.childElementCount) return;
+    this.overridesKey = key;
+    const field = (name, type, label, extra = "") =>
+      `<label class="ma-field"><span>${escapeHtml(label)}</span><input type="${type}" data-override="${name}" value="${escapeHtml(
+        overrides[name] || "",
+      )}" ${extra} /></label>`;
+    box.innerHTML = `
+      <button type="button" class="ma-ovr-toggle${filled ? " is-set" : ""}" data-always-enabled data-override-toggle aria-expanded="${state.massOverridesOpen ? "true" : "false"}">
+        <span>${escapeHtml(t("overrides.title"))}</span>
+        <em>${escapeHtml(filled ? this.overridesSummary(currency) : t("overrides.none"))}</em>
+      </button>
+      ${
+        state.massOverridesOpen
+          ? `<div class="ma-ovr-body">
+              <div class="ma-row">
+                ${field("budget", "text", t("overrides.budget", { currency: currency || "…" }), 'inputmode="decimal" placeholder="—"')}
+                ${field("bid", "text", t("overrides.bid", { currency: currency || "…" }), 'inputmode="decimal" placeholder="—"')}
+                ${field("start", "datetime-local", t("overrides.start"))}
+              </div>
+              <div class="ma-ovr-note">
+                <span>${escapeHtml(t("overrides.note"))}</span>
+                <button type="button" class="ma-ovr-clear" data-always-enabled data-override-clear>${escapeHtml(t("overrides.clear"))}</button>
+              </div>
+            </div>`
+          : ""
+      }`;
+  }
+
+  /** "budget 50 USD · start 15.11 09:00" for the collapsed strip. */
+  overridesSummary(currency) {
+    const { state } = this.dependencies;
+    const overrides = state.massOverrides || {};
+    const parts = [];
+    if (parseAmount(overrides.budget)) {
+      parts.push(
+        `${t("overrides.short.budget")} ${overrides.budget} ${currency}`.trim(),
+      );
+    }
+    if (parseAmount(overrides.bid)) {
+      parts.push(
+        `${t("overrides.short.bid")} ${overrides.bid} ${currency}`.trim(),
+      );
+    }
+    if (String(overrides.start || "").trim()) {
+      parts.push(
+        `${t("overrides.short.start")} ${String(overrides.start).replace("T", " ")}`,
+      );
+    }
+    return parts.join(" · ");
+  }
+
   render() {
     const { state, dom } = this.dependencies;
     if (!state.uiReady || !dom.root) return;
+    this.renderOverrides();
     this.renderSource();
     this.renderTargets();
     this.renderProgress();

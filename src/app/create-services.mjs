@@ -51,6 +51,7 @@ import { MassCloneView } from "../ui/mass-clone-view.mjs";
 import { MassCloneController } from "../ui/mass-clone-controller.mjs";
 import { CurrencyRateService } from "../accounts/currency-rate-service.mjs";
 import { ValueRuleService } from "../value-rules/value-rule-service.mjs";
+import { ReportActions } from "../reports/report-actions.mjs";
 import { ReportService } from "../reports/report-service.mjs";
 import { ReportsView } from "../ui/reports-view.mjs";
 import { APP_ID } from "./constants.mjs";
@@ -241,12 +242,28 @@ export function createServices({ state, dom, logger, overrides = {} }) {
         return services.graphClient;
       },
     });
+  services.reportActions =
+    overrides.reportActions ||
+    new ReportActions({
+      get logging() {
+        return services.logging;
+      },
+      get graphClient() {
+        return services.graphClient;
+      },
+      get reportService() {
+        return services.reportService;
+      },
+    });
   services.reportsView =
     overrides.reportsView ||
     new ReportsView({
       state,
       dom,
       appId: APP_ID,
+      get reportActions() {
+        return services.reportActions;
+      },
       get logging() {
         return services.logging;
       },
@@ -886,6 +903,7 @@ export function createServices({ state, dom, logger, overrides = {} }) {
     new MassCloneView({
       state,
       dom,
+      appId: APP_ID,
     });
   services.massCloneWorkflow =
     overrides.massCloneWorkflow ||
@@ -905,6 +923,9 @@ export function createServices({ state, dom, logger, overrides = {} }) {
       },
       get draftRepository() {
         return services.draftRepository;
+      },
+      get reportService() {
+        return services.reportService;
       },
       get currencyRateService() {
         return services.currencyRateService;

@@ -58,6 +58,36 @@ const DICT = {
     "reports.stuckHint":
       "These campaigns are switched on, but the account cannot deliver ads. They are not counted as active.",
     "reports.noDead": "No banned or blocked accounts.",
+    "reports.act.pick": "Select this account for a bulk action",
+    "reports.act.pickAll": "Select all accounts shown",
+    "reports.act.selected": "Selected: {count}",
+    "reports.act.pause": "Switch campaigns off",
+    "reports.act.budget": "Change budget",
+    "reports.act.clear": "Clear selection",
+    "reports.act.modeSet": "Set, $",
+    "reports.act.modePercent": "Change, %",
+    "reports.act.placeholderSet": "50",
+    "reports.act.placeholderPercent": "+20 or -30",
+    "reports.act.next": "Next",
+    "reports.act.cancel": "Cancel",
+    "reports.act.invalid.set": "Enter a daily budget in dollars, above zero.",
+    "reports.act.invalid.percent": "Enter a percentage such as 20 or -30.",
+    "reports.act.confirmPause":
+      "Switch off {campaigns} active campaign(s) in {accounts} account(s)?",
+    "reports.act.confirmSet":
+      "Set the daily budget to ${value} for {campaigns} active campaign(s) in {accounts} account(s)?",
+    "reports.act.confirmPercent":
+      "Change the daily budget by {value}% for {campaigns} active campaign(s) in {accounts} account(s)?",
+    "reports.act.skipNote":
+      "Accounts that are not working ({count}) are skipped.",
+    "reports.act.yesPause": "Yes, switch off",
+    "reports.act.yesBudget": "Yes, change",
+    "reports.act.running": "Working…",
+    "reports.act.donePause": "Campaigns switched off: {changed}.",
+    "reports.act.doneBudget": "Budgets changed: {changed}.",
+    "reports.act.doneFailed": "Failed: {count}.",
+    "reports.act.doneSkipped": "Accounts skipped: {count}.",
+    "reports.act.ok": "OK",
     "reports.zone.account": "Account time",
     "reports.zone.viewer": "My time",
     "reports.zoneHint.account":
@@ -164,6 +194,17 @@ const DICT = {
     "catalog.confirmExisting": "added to this existing catalog",
     "catalog.confirmNote":
       "The ads show products from a catalog, and the target account's catalog does not have them yet. OK copies the products, feeds and product sets; nothing already in the catalog is changed. Cancel stops the clone for this account.",
+    "overrides.title": "Change on clone",
+    "overrides.none": "as in the source",
+    "overrides.budget": "Daily budget, {currency}",
+    "overrides.bid": "Bid, {currency}",
+    "overrides.start": "Start (account time)",
+    "overrides.note":
+      "Empty fields keep the source's values. Amounts are in the source currency and are converted for other currencies. The start is that clock time in each target account.",
+    "overrides.clear": "Clear",
+    "overrides.short.budget": "budget",
+    "overrides.short.bid": "bid",
+    "overrides.short.start": "start",
     "field.newName": "New campaign name",
     "field.newNameHint":
       "Filled in automatically. Type to set this account's name by hand; macros work here too.",
@@ -329,6 +370,36 @@ const DICT = {
     "reports.stuckHint":
       "Эти кампании включены, но кабинет не может показывать рекламу. В активные они не считаются.",
     "reports.noDead": "Забаненных и заблокированных кабинетов нет.",
+    "reports.act.pick": "Отметить кабинет для действия",
+    "reports.act.pickAll": "Отметить все показанные кабинеты",
+    "reports.act.selected": "Выбрано: {count}",
+    "reports.act.pause": "Выключить кампании",
+    "reports.act.budget": "Изменить бюджет",
+    "reports.act.clear": "Снять выбор",
+    "reports.act.modeSet": "Установить, $",
+    "reports.act.modePercent": "Изменить, %",
+    "reports.act.placeholderSet": "50",
+    "reports.act.placeholderPercent": "+20 или -30",
+    "reports.act.next": "Далее",
+    "reports.act.cancel": "Отмена",
+    "reports.act.invalid.set":
+      "Введите дневной бюджет в долларах, больше нуля.",
+    "reports.act.invalid.percent": "Введите процент, например 20 или -30.",
+    "reports.act.confirmPause":
+      "Выключить активные кампании ({campaigns}) в кабинетах ({accounts})?",
+    "reports.act.confirmSet":
+      "Поставить дневной бюджет ${value} активным кампаниям ({campaigns}) в кабинетах ({accounts})?",
+    "reports.act.confirmPercent":
+      "Изменить дневной бюджет на {value}% у активных кампаний ({campaigns}) в кабинетах ({accounts})?",
+    "reports.act.skipNote": "Нерабочие кабинеты ({count}) будут пропущены.",
+    "reports.act.yesPause": "Да, выключить",
+    "reports.act.yesBudget": "Да, изменить",
+    "reports.act.running": "Выполняю…",
+    "reports.act.donePause": "Кампаний выключено: {changed}.",
+    "reports.act.doneBudget": "Бюджетов изменено: {changed}.",
+    "reports.act.doneFailed": "Ошибок: {count}.",
+    "reports.act.doneSkipped": "Кабинетов пропущено: {count}.",
+    "reports.act.ok": "OK",
     "reports.zone.account": "Пояс кабинета",
     "reports.zone.viewer": "Мой пояс",
     "reports.zoneHint.account":
@@ -433,6 +504,17 @@ const DICT = {
     "catalog.confirmExisting": "добавим в этот существующий каталог",
     "catalog.confirmNote":
       "Объявления показывают товары из каталога, а в каталоге целевого кабинета их ещё нет. ОК скопирует товары, фиды и наборы товаров; то, что уже есть в каталоге, не меняется. Отмена остановит клон для этого кабинета.",
+    "overrides.title": "Изменить при клонировании",
+    "overrides.none": "как в источнике",
+    "overrides.budget": "Бюджет в день, {currency}",
+    "overrides.bid": "Ставка, {currency}",
+    "overrides.start": "Старт (время кабинета)",
+    "overrides.note":
+      "Пустые поля оставляют значения источника. Суммы в валюте источника, для других валют пересчитываются. Старт означает это время по часам каждого целевого кабинета.",
+    "overrides.clear": "Сбросить",
+    "overrides.short.budget": "бюджет",
+    "overrides.short.bid": "ставка",
+    "overrides.short.start": "старт",
     "field.newName": "Название кампании",
     "field.newNameHint":
       "Подставляется автоматически. Можно вписать своё название для этого кабинета; макросы тоже работают.",

@@ -69,6 +69,10 @@ export class MirrorAdsState {
     this.massPixels = {};
     this.massMode = "DRAFT";
     this.massNameTemplate = DEFAULT_NAME_TEMPLATE;
+    // Changes applied to every clone of a run; empty fields keep the source's.
+    this.massOverrides = { budget: "", bid: "", start: "" };
+    this.massOverridesOpen = false;
+    this.cloneOverrideZone = "";
     this.massRateOverride = "";
     this.massCurrencyNote = "";
     this.cloneCurrencyRate = 1;
@@ -88,6 +92,9 @@ export class MirrorAdsState {
     this.reportError = "";
     this.reportShowEmpty = false;
     this.reportStatusFilter = "all";
+    this.reportSelected = {};
+    // null, or { kind: "pause" | "budget", stage: "form" | "confirm" | "running" | "done", ... }
+    this.reportAction = null;
     // null: not read from storage yet; "": follow the browser.
     this.reportViewerZone = null;
     this.reportCustom = null;
