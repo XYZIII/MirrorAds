@@ -301,6 +301,49 @@ test("a host the page may not call is skipped; the message names the step", asyn
   );
 });
 
+test("a page Facebook reads a few seconds after being asked is waited for", async () => {
+  const facebook = fakeFacebook();
+  const built = site("141126b13");
+  facebook.publish(built);
+  let lookups = 0;
+  const slow = {
+    fetch: async (url, init = {}) => {
+      const parsed = new URL(url);
+      const response = await facebook.fetch(url, init);
+      if (!parsed.searchParams.has("id")) return response;
+      // The scrape answer carries no object, and the first lookups after it
+      // still find nothing.
+      const late = init.method === "POST" || (lookups += 1) < 4;
+      return late
+        ? {
+            ok: true,
+            status: 200,
+            text: async () =>
+              JSON.stringify({ id: parsed.searchParams.get("id") }),
+          }
+        : response;
+    },
+  };
+  const result = await runLoader(slow, {}, built);
+  assert.deepEqual(result.alerts, []);
+  assert.deepEqual(result.ran, ["141126b13"]);
+
+  // A page Facebook never manages to read: the message shows its answer.
+  const never = {
+    fetch: async (url) => ({
+      ok: true,
+      status: 200,
+      text: async () =>
+        JSON.stringify({ id: new URL(url).searchParams.get("id") || "x" }),
+    }),
+  };
+  const failed = await runLoader(never, {}, built);
+  assert.match(
+    failed.alerts[0],
+    /не смог прочитать страницу .*manifest \(ответ: \{"id"/,
+  );
+});
+
 test("when Facebook is unreachable the saved script still starts; an operation blocks a reload", async () => {
   const facebook = fakeFacebook();
   const built = site("141126b13");

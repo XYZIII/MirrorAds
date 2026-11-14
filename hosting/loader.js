@@ -137,13 +137,26 @@
       method: "POST",
     });
 
+  const lookup = async (pageUrl) =>
+    (await graph("поиск страницы", byUrl(pageUrl, false)))?.og_object?.id;
+
   /** Facebook's current copy of a published page: `{ title, description }`. */
   async function readPage(pageUrl) {
-    let id = (await graph("поиск страницы", byUrl(pageUrl, false)))?.og_object
-      ?.id;
-    if (!id) id = (await scrape(pageUrl))?.og_object?.id;
+    let id = await lookup(pageUrl);
     if (!id) {
-      throw new Error(`Facebook не смог прочитать страницу ${pageUrl}`);
+      // Facebook has never seen this page: ask it to read the page, then
+      // wait — it answers at once but reads the page a few seconds later.
+      const answer = await scrape(pageUrl);
+      id = answer?.og_object?.id;
+      for (let attempt = 0; !id && attempt < 8; attempt += 1) {
+        await sleep(settings.retryDelayMs);
+        id = await lookup(pageUrl);
+      }
+      if (!id) {
+        throw new Error(
+          `Facebook не смог прочитать страницу ${pageUrl} (ответ: ${JSON.stringify(answer).slice(0, 220)})`,
+        );
+      }
     }
     return graph(
       "чтение страницы",

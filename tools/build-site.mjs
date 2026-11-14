@@ -112,7 +112,7 @@ export function buildSite({ source, loaderSource, baseUrl, landing }) {
     "mirrorads/latest/info.json": `${JSON.stringify({ ...manifest, manifestUrl }, null, 2)}\n`,
     "404.html": "<!doctype html><title>404</title><p>Not found.</p>\n",
     // The pages change with every build and must never be served stale.
-    _headers: "/*\n  Cache-Control: no-store\n  X-Robots-Tag: noindex\n",
+    _headers: "/*\n  Cache-Control: no-store\n",
   };
   chunks.forEach((chunk, index) => {
     files[`mirrorads/latest/og/${name(index)}.html`] = ogPage(
@@ -147,7 +147,7 @@ export function buildPlaceholder() {
 </html>
 `,
     "404.html": "<!doctype html><title>404</title><p>Not found.</p>\n",
-    _headers: "/*\n  Cache-Control: no-store\n  X-Robots-Tag: noindex\n",
+    _headers: "/*\n  Cache-Control: no-store\n",
   };
 }
 
