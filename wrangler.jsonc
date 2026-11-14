@@ -2,6 +2,9 @@
   // Cloudflare serves the static site built by `node tools/build-site.mjs`.
   "name": "mirrorads",
   "compatibility_date": "2026-01-01",
+  // The site lives on the project's own workers.dev address.
+  "workers_dev": true,
+  "preview_urls": false,
   "assets": {
     "directory": "./dist",
     // /mirrorads/latest/manifest serves manifest.html.
