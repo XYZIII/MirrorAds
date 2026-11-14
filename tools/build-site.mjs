@@ -110,6 +110,7 @@ export function buildSite({ source, loaderSource, baseUrl, landing }) {
       Buffer.from(JSON.stringify(manifest), "utf8").toString("base64"),
     ),
     "mirrorads/latest/info.json": `${JSON.stringify({ ...manifest, manifestUrl }, null, 2)}\n`,
+    "404.html": "<!doctype html><title>404</title><p>Not found.</p>\n",
     // The pages change with every build and must never be served stale.
     _headers: "/*\n  Cache-Control: no-store\n  X-Robots-Tag: noindex\n",
   };
@@ -122,6 +123,34 @@ export function buildSite({ source, loaderSource, baseUrl, landing }) {
   return { files, build, manifestUrl, bookmark, chunks: chunks.length };
 }
 
+/**
+ * The site before its address is known. A host builds the project once to
+ * give it an address at all; that first build must not fail, and it must not
+ * publish a bookmark that points nowhere.
+ */
+export function buildPlaceholder() {
+  return {
+    "index.html": `<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>${APP} — сайт создан</title>
+</head>
+<body style="margin:0;display:grid;place-items:center;min-height:100vh;background:#f6f7f9;color:#111827;font:16px/1.6 system-ui,sans-serif">
+  <main style="width:min(560px,calc(100vw - 32px));padding:28px;border:1px solid #e5e7eb;border-radius:22px;background:#fff">
+    <h1 style="margin:0 0 8px;font-size:24px">Сайт создан</h1>
+    <p style="margin:0;color:#6b7280">Осталось указать его адрес в настройках проекта: скопируйте адрес этой страницы из строки браузера и передайте его разработчику. После этого здесь появится страница установки.</p>
+  </main>
+</body>
+</html>
+`,
+    "404.html": "<!doctype html><title>404</title><p>Not found.</p>\n",
+    _headers: "/*\n  Cache-Control: no-store\n  X-Robots-Tag: noindex\n",
+  };
+}
+
 function main() {
   const read = (file) => fs.readFileSync(path.join(ROOT, file), "utf8");
   let config = {};
@@ -130,22 +159,31 @@ function main() {
   } catch (_error) {
     // No site.json: the address comes from the flag or the environment.
   }
-  const site = buildSite({
-    source: read("mirrorads.js"),
-    loaderSource: read("hosting/loader.js"),
-    landing: read("hosting/index.html"),
-    baseUrl: resolveBaseUrl({
-      flag: arg("base-url"),
-      env: process.env,
-      config,
-    }),
+  const baseUrl = resolveBaseUrl({
+    flag: arg("base-url"),
+    env: process.env,
+    config,
   });
+  const site = baseUrl
+    ? buildSite({
+        source: read("mirrorads.js"),
+        loaderSource: read("hosting/loader.js"),
+        landing: read("hosting/index.html"),
+        baseUrl,
+      })
+    : { files: buildPlaceholder() };
   const out = path.resolve(ROOT, arg("out") || "dist");
   fs.rmSync(out, { recursive: true, force: true });
   for (const [file, content] of Object.entries(site.files)) {
     const target = path.join(out, file);
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, content);
+  }
+  if (!baseUrl) {
+    console.log(
+      `${APP}: the site address is not set yet; a placeholder page was built. Put {"baseUrl": "https://…"} into hosting/site.json.`,
+    );
+    return;
   }
   console.log(
     `${APP} ${site.build}: site built in ${path.relative(ROOT, out) || "."} (${site.chunks} chunk(s)).`,

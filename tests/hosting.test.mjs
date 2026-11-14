@@ -277,3 +277,14 @@ test("when Facebook is unreachable the saved script still starts; an operation b
   assert.deepEqual(result.ran, []);
   assert.equal(result.alerts.length, 1);
 });
+
+test("before the address is known the site is a placeholder without a bookmark", async () => {
+  const { buildPlaceholder } = await import("../tools/build-site.mjs");
+  const files = buildPlaceholder();
+  assert.deepEqual(Object.keys(files).sort(), [
+    "404.html",
+    "_headers",
+    "index.html",
+  ]);
+  assert.ok(!files["index.html"].includes("javascript:"));
+});
