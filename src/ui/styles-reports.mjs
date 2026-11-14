@@ -352,5 +352,50 @@ export function buildReportStyles(A) {
       ${A} button.ma-rep-offbtn:hover { background: #fef2f2; color: #b91c1c; }
       ${A} button.ma-rep-offbtn.is-armed { border-color: #ef4444; background: #ef4444; color: #ffffff; }
       ${A} button.ma-rep-offbtn:disabled { opacity: 0.6; cursor: default; }
+      ${A} .ma-rep-camps button.ma-rep-toggle.is-zero { background: #f1f2f5; color: var(--ma-muted); }
+      ${A} .ma-rep-cl-sub { margin-top: 12px; }
+      ${A} button.ma-rep-onbtn {
+        flex: 0 0 auto;
+        min-height: 28px;
+        padding: 0 12px;
+        border: 1px solid #bfe89a;
+        border-radius: 999px;
+        background: #ffffff;
+        color: var(--ma-lime-deep);
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      ${A} button.ma-rep-onbtn:hover { background: #f3fde7; color: var(--ma-lime-deep); }
+      ${A} button.ma-rep-onbtn.is-armed { border-color: var(--ma-lime); background: var(--ma-lime); color: var(--ma-ink); }
+      ${A} button.ma-rep-onbtn:disabled { opacity: 0.6; cursor: default; }
+      ${A} button.ma-rep-blink {
+        display: inline-block;
+        min-height: 0;
+        height: auto;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: var(--ma-muted);
+        font-size: 11px;
+        font-weight: 500;
+        cursor: pointer;
+      }
+      ${A} button.ma-rep-blink:hover { background: transparent; color: var(--ma-ink); text-decoration: underline; }
+      ${A} .ma-rep-bedit { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+      ${A} .ma-rep-bedit input[type="text"] { width: 84px; height: 28px; padding: 0 8px; font-size: 12px; }
+      ${A} .ma-rep-bedit i { font-style: normal; font-size: 11px; color: var(--ma-muted); }
+      ${A} button.ma-rep-bsave {
+        min-height: 28px;
+        padding: 0 12px;
+        border: 0;
+        border-radius: 999px;
+        background: var(--ma-lime);
+        color: var(--ma-ink);
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      ${A} .ma-rep-camp.is-off b { text-decoration: none; }
     `;
 }

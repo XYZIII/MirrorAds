@@ -1,5 +1,6 @@
 import { buildDialogStyles } from "./styles-dialog.mjs";
 import { buildReportStyles } from "./styles-reports.mjs";
+import { buildRuleStyles } from "./styles-rules.mjs";
 
 /**
  * MirrorAds layout and look: a light side panel docked to the right edge of
@@ -682,6 +683,7 @@ export function buildLayoutStyles(appId) {
       ${A} .ma-macros-pop code { cursor: pointer; transition: background 0.12s ease; }
       ${A} .ma-macros-pop code:hover { background: var(--ma-lime); color: var(--ma-ink); }
       ${buildDialogStyles(A)}
+      ${buildRuleStyles(A)}
 
       ${buildReportStyles(A)}
       /* ---- log ---- */

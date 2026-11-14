@@ -142,9 +142,19 @@ export class ReportView {
         })
         .join("")}</div>
       <div class="ma-actions">
+        ${
+          failed
+            ? `<button data-action="retry">${escapeHtml(t("report.mass.retry", { count: failed }))}</button>`
+            : ""
+        }
         <button data-action="close" class="ma-primary">${escapeHtml(t("report.ok"))}</button>
       </div>`;
     card.addEventListener("click", (event) => {
+      if (event.target.closest("button[data-action='retry']")) {
+        this.destroy();
+        this.services.massCloneWorkflow?.retryFailed?.();
+        return;
+      }
       if (event.target.closest("button[data-action='close']")) this.destroy();
     });
     overlay.addEventListener("click", (event) => {

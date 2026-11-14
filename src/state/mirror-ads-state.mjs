@@ -98,6 +98,18 @@ export class MirrorAdsState {
     this.reportOpen = "";
     this.reportCamps = {};
     this.reportArm = "";
+    this.reportEdit = "";
+    this.rulesSource = "";
+    this.rulesList = null;
+    this.rulesLoading = false;
+    this.rulesError = "";
+    this.rulesPicked = {};
+    this.rulesTargets = {};
+    this.rulesDisabled = false;
+    this.rulesSearch = "";
+    this.rulesStage = "";
+    this.rulesProgress = "";
+    this.rulesResults = null;
     // null: not read from storage yet; "": follow the browser.
     this.reportViewerZone = null;
     this.reportCustom = null;

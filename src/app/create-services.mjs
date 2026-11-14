@@ -1,3 +1,4 @@
+import { registerRulesServices } from "./rules-services.mjs";
 import { Logging } from "../core/logging.mjs";
 import { LocalVersions } from "./local-versions.mjs";
 import { PanelView } from "../ui/panel-view.mjs";
@@ -234,6 +235,9 @@ export function createServices({ state, dom, logger, overrides = {} }) {
       get reportsView() {
         return services.reportsView;
       },
+      get rulesView() {
+        return services.rulesView;
+      },
     });
   services.reportService =
     overrides.reportService ||
@@ -271,6 +275,7 @@ export function createServices({ state, dom, logger, overrides = {} }) {
         return services.reportService;
       },
     });
+  registerRulesServices(services, { state, dom, overrides });
   services.sessionService =
     overrides.sessionService ||
     new SessionService({

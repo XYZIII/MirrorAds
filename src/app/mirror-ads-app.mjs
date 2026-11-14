@@ -29,8 +29,17 @@ export class MirrorAdsApp {
     this.coordinator = new OperationCoordinator({
       state: this.state,
       initializeSession: this.services.sessionService.initializeSession,
-      createRuntime: (context) =>
-        createServices({ state: context.state, dom: {}, logger: this.logger }),
+      createRuntime: (context) => {
+        // Accounts of a batch run side by side: their lines carry the account.
+        const prefix = context.options?.logPrefix;
+        const logger = prefix
+          ? {
+              log: (level, message, details) =>
+                this.logger.log(level, `[${prefix}] ${message}`, details),
+            }
+          : this.logger;
+        return createServices({ state: context.state, dom: {}, logger });
+      },
       onChange: () => this.services.panelView.renderUI(),
       onReport: (report, options) => this.reportView.show(report, options),
     });
@@ -47,7 +56,7 @@ export class MirrorAdsApp {
     this.services.massCloneWorkflow.dependencies.runOperation = (
       kind,
       options,
-    ) => this.coordinator.run(kind, options);
+    ) => this.coordinator.runBatch(kind, options);
     this.debug = createDebugApi(this.services, this.state);
     this.debug.lastReport = () => this.state.lastOperationReport;
   }

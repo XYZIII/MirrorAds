@@ -12,25 +12,42 @@ export class OperationCoordinator {
       onReport,
     });
     this.active = null;
+    /** Batch operations in flight; the UI stays busy until the last ends. */
+    this.batchCount = 0;
   }
 
+  /** One operation started by the user; refused while anything else runs. */
   async run(kind, options = {}) {
-    if (
-      this.active ||
-      this.state.busy ||
-      this.state.loadingSession ||
-      this.state.versionLoading
-    )
-      return false;
+    return (await this.execute(kind, options, false)).success;
+  }
+
+  /**
+   * One operation of a batch (mass clone). Several of these may run at the
+   * same time: each has its own snapshot of the selections and its own
+   * services, so they share nothing but the session. Returns the report with
+   * the verdict, because `state.lastOperationReport` is shared by the batch.
+   * `started: false` means it was refused (a single operation is running).
+   */
+  async runBatch(kind, options = {}) {
+    return this.execute(kind, options, true);
+  }
+
+  async execute(kind, options, batch) {
+    const refused = { started: false, success: false, report: null };
+    if (this.state.loadingSession || this.state.versionLoading) return refused;
+    if (batch ? this.active && !this.batchCount : this.active) return refused;
+    if (!this.batchCount && this.state.busy) return refused;
     // Facebook decorates native click events with cyclic flowlet metadata.
     // Discard UI events before snapshotting, not later inside the workflow.
     options = normalizeImportOptions(options);
     const context = new OperationContext(kind, this.state, options);
     this.active = context;
+    if (batch) this.batchCount += 1;
     this.state.operationActive = true;
     this.state.busy = true;
     this.onChange();
     let success = false;
+    let report = null;
     try {
       await this.initializeSession();
       context.useSession(this.state);
@@ -48,22 +65,27 @@ export class OperationCoordinator {
       else if (kind === "export")
         success = await runtime.exportWorkflow.exportSelectedCampaign();
       else throw new Error(`Unknown operation: ${kind}`);
-      return Boolean(success);
+      success = Boolean(success);
     } catch (error) {
+      success = false;
       context.report.issue(error?.message || error, {
         uncertain: Boolean(error?.uncertain),
       });
-      return false;
     } finally {
-      context.report.finish(Boolean(success), {
+      context.report.finish(success, {
         cancelled: context.state.operationCancelled,
       });
-      this.state.lastOperationReport = context.report.toJSON();
-      this.active = null;
-      this.state.operationActive = false;
-      this.state.busy = false;
+      report = context.report.toJSON();
+      this.state.lastOperationReport = report;
+      if (batch) this.batchCount -= 1;
+      if (!this.batchCount) {
+        this.active = null;
+        this.state.operationActive = false;
+        this.state.busy = false;
+      }
       this.onChange();
       this.onReport(context.report, options);
     }
+    return { started: true, success, report };
   }
 }

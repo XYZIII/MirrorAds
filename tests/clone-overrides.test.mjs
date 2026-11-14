@@ -335,39 +335,53 @@ test("the pool limits concurrency, keeps order and waits for every item", async 
   assert.deepEqual(await runPool([], 3, async () => 1), []);
 });
 
-test("the campaign list arms a button first and switches off on the second click", async () => {
+test("the campaign list arms a button first, then switches off, on, and sets a budget", async () => {
   const { ReportCampaigns } = await import("../src/ui/report-campaigns.mjs");
-  const paused = [];
+  const calls = [];
   const state = {
     report: {
-      rows: [{ accountId: "11", activeCampaigns: 2, inactiveCampaigns: 1 }],
+      rows: [
+        {
+          accountId: "11",
+          currency: "USD",
+          activeCampaigns: 2,
+          inactiveCampaigns: 1,
+        },
+      ],
       total: { activeCampaigns: 2 },
     },
   };
+  let typed = "";
   const list = new ReportCampaigns({
     state,
     render() {},
+    panel: () => ({ querySelector: () => ({ value: typed }) }),
     reportActions: {
-      listActiveCampaigns: async () => [
-        { id: "c1", name: "One", dailyBudget: 5000 },
-        { id: "c2", name: "Two", dailyBudget: 0 },
+      listCampaigns: async () => [
+        { id: "c1", name: "One", dailyBudget: 5000, on: true },
+        { id: "c2", name: "Two", dailyBudget: 0, on: true },
+        { id: "c3", name: "Old", dailyBudget: 2000, on: false },
       ],
-      pauseCampaign: async (id) => {
+      setCampaignStatus: async (id, on) => {
         if (id === "c2") throw new Error("(#200) no permission");
-        paused.push(id);
+        calls.push(`${id}:${on ? "on" : "off"}`);
+      },
+      setCampaignBudget: async (id, amount) => {
+        calls.push(`${id}:budget:${amount}`);
       },
     },
   });
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(list.handle("period", "today"), false);
   list.handle("camps", "11");
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  assert.equal(state.reportCamps["11"].items.length, 2);
+  await settle();
+  assert.equal(state.reportCamps["11"].items.length, 3);
 
   list.handle("coff", "c1");
-  assert.deepEqual(paused, [], "the first click only arms the button");
+  assert.deepEqual(calls, [], "the first click only arms the button");
   list.handle("coff", "c1");
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  assert.deepEqual(paused, ["c1"]);
+  await settle();
+  assert.deepEqual(calls, ["c1:off"]);
   assert.equal(state.report.rows[0].activeCampaigns, 1);
   assert.equal(state.report.rows[0].inactiveCampaigns, 2);
   assert.equal(state.report.total.activeCampaigns, 1);
@@ -375,8 +389,50 @@ test("the campaign list arms a button first and switches off on the second click
   // "All" skips what is already off; a refusal stays visible on its row.
   list.handle("call", "11");
   list.handle("call", "11");
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  assert.deepEqual(paused, ["c1"]);
+  await settle();
+  assert.deepEqual(calls, ["c1:off"]);
   assert.match(state.reportCamps["11"].items[1].error, /no permission/);
   assert.equal(state.report.rows[0].activeCampaigns, 1);
+
+  // Switching back on needs the second click too and restores the counters.
+  list.handle("con", "c3");
+  list.handle("con", "c3");
+  await settle();
+  assert.deepEqual(calls, ["c1:off", "c3:on"]);
+  assert.equal(state.report.rows[0].activeCampaigns, 2);
+  assert.equal(state.report.total.activeCampaigns, 2);
+
+  // Budget: typed in the account currency, sent in minor units.
+  list.handle("bedit", "c1");
+  typed = "abc";
+  list.handle("bsave", "c1");
+  await settle();
+  assert.equal(calls.length, 2, "a bad amount is not sent");
+  typed = "72,5";
+  list.handle("bsave", "c1");
+  await settle();
+  assert.equal(calls[2], "c1:budget:7250");
+  assert.equal(state.reportCamps["11"].items[0].dailyBudget, 7250);
+  assert.equal(state.reportEdit, "");
+  assert.match(list.markup(state.report.rows[0]), /72\.5 USD/);
+});
+
+test("the pool limits concurrency, keeps order and waits for every item", async () => {
+  const { runPool } = await import("../src/utils/pool.mjs");
+  let running = 0;
+  let peak = 0;
+  const outcomes = await runPool([1, 2, 3, 4, 5], 2, async (n) => {
+    running += 1;
+    peak = Math.max(peak, running);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    running -= 1;
+    if (n === 2) throw new Error("boom");
+    return n * 10;
+  });
+  assert.equal(peak, 2);
+  assert.deepEqual(
+    outcomes.map((item) => item.value ?? item.error.message),
+    [10, "boom", 30, 40, 50],
+  );
+  assert.deepEqual(await runPool([], 3, async () => 1), []);
 });

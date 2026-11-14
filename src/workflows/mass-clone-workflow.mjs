@@ -22,6 +22,9 @@ import {
  * deleted) and the loop continues with the next account, so one broken account
  * never costs the operator the rest of the batch.
  */
+/** Accounts cloned at the same time; `state.massConcurrency` overrides it. */
+const MASS_CONCURRENCY = 3;
+
 export class MassCloneWorkflow {
   constructor(dependencies) {
     this.dependencies = dependencies;
@@ -29,6 +32,10 @@ export class MassCloneWorkflow {
     this.runTarget = this.runTarget.bind(this);
     this.rollbackTarget = this.rollbackTarget.bind(this);
     this.selectedTargets = this.selectedTargets.bind(this);
+    this.retryFailed = this.retryFailed.bind(this);
+    this.concurrency = 1;
+    this.baseMappings = null;
+    this.lastTargets = [];
   }
 
   selectedTargets() {
@@ -258,25 +265,42 @@ export class MassCloneWorkflow {
   }
 
   /**
-   * One clone attempt. A `false` with no fresh report means the coordinator
-   * refused to start (session or another operation not settled yet), so it is
-   * retried briefly instead of dropping the account.
+   * One clone attempt. `arm` writes this target's selections into the shared
+   * state right before the operation starts: the operation snapshots the
+   * state synchronously, so targets running side by side never see each
+   * other's selections. A refused start (session or another operation not
+   * settled yet) is retried briefly instead of dropping the account.
    */
-  async runOneClone() {
+  async runOneClone(arm, target) {
     const { state } = this.dependencies;
     const { log } = this.dependencies.logging;
     const { runOperation } = this.dependencies;
     for (let attempt = 0; attempt < 3; attempt += 1) {
+      arm?.();
       state.lastOperationReport = null;
-      const success = await runOperation("clone", { reloadOnSuccess: false });
-      if (success || state.lastOperationReport) return success;
+      const outcome = await runOperation("clone", {
+        reloadOnSuccess: false,
+        // The catalog is chosen per account in the table; asking again for
+        // every account would stop a batch fifty times.
+        confirmCatalogChanges: true,
+        logPrefix: this.concurrency > 1 ? target?.name : "",
+      });
+      const result =
+        outcome && typeof outcome === "object"
+          ? outcome
+          : {
+              success: Boolean(outcome),
+              report: state.lastOperationReport || null,
+              started: Boolean(outcome || state.lastOperationReport),
+            };
+      if (result.started) return result;
       await sleep(2000);
     }
     log(
       "warn",
       "Mass clone: the clone did not start; the session is not ready.",
     );
-    return false;
+    return { success: false, report: null, started: false };
   }
 
   async runTarget(target, { packageData, sourceName, index }) {
@@ -305,14 +329,11 @@ export class MassCloneWorkflow {
       this.dependencies.renderMassClone?.();
       return false;
     }
-    this.applyPixelChoice(packageData, target.pixelId);
-    this.applyPageChoice(packageData, target.pageId);
-    this.applyCatalogChoice(packageData, target.catalogId);
     // A start time is typed once and means that clock time in every account.
-    state.cloneOverrideZone = "";
+    let overrideZone = "";
     if (String(state.massOverrides?.start || "").trim()) {
       try {
-        state.cloneOverrideZone = (
+        overrideZone = (
           await this.dependencies.reportService.loadAccountMeta(
             target.accountId,
           )
@@ -325,13 +346,9 @@ export class MassCloneWorkflow {
         );
       }
     }
-    state.cloneTargetAccountId = target.accountId;
-    state.cloneAsDraft =
-      state.massMode !== "PAUSED" && state.massMode !== "ACTIVE";
-    state.cloneStatus = state.cloneAsDraft ? "PAUSED" : state.massMode;
     const sourceAccountId =
       packageData?.source?.accountId || state.cloneSourceAccountId;
-    state.cloneCampaignName = this.buildCampaignName(
+    const campaignName = this.buildCampaignName(
       // A name typed into the account row wins over the shared template.
       target.campaignName || state.massNameTemplate,
       sourceName,
@@ -347,7 +364,28 @@ export class MassCloneWorkflow {
         adNames: (packageData?.ads || []).map((ad) => ad?.name),
       },
     );
-    row.campaignName = state.cloneCampaignName;
+    row.campaignName = campaignName;
+    const base = this.baseMappings;
+    const arm = () => {
+      // Start from the selections made before the batch, so one account's
+      // pixel, page or catalog never leaks into the next one.
+      if (base) {
+        state.clonePixelMappings = { ...base.pixel };
+        state.clonePageMappings = { ...base.page };
+        state.cloneCatalogMappings = { ...base.catalog };
+      }
+      this.applyPixelChoice(packageData, target.pixelId);
+      this.applyPageChoice(packageData, target.pageId);
+      this.applyCatalogChoice(packageData, target.catalogId);
+      state.cloneCurrency = currency?.from || state.cloneCurrency || "";
+      state.cloneCurrencyRate = currency?.rate || 1;
+      state.cloneOverrideZone = overrideZone;
+      state.cloneTargetAccountId = target.accountId;
+      state.cloneAsDraft =
+        state.massMode !== "PAUSED" && state.massMode !== "ACTIVE";
+      state.cloneStatus = state.cloneAsDraft ? "PAUSED" : state.massMode;
+      state.cloneCampaignName = campaignName;
+    };
     const copyLabel =
       target.copyCount > 1
         ? ` copy ${target.copyIndex}/${target.copyCount}`
@@ -356,8 +394,9 @@ export class MassCloneWorkflow {
       "info",
       `Mass clone ${index + 1}/${state.massResults.length}${copyLabel}: ${sourceName} -> ${target.name} (${target.accountId}).`,
     );
-    const success = await this.runOneClone();
-    let report = state.lastOperationReport || null;
+    const first = await this.runOneClone(arm, target);
+    const success = first.success;
+    let report = first.report;
     row.counts = report?.counts || null;
     if (success) {
       row.status = "success";
@@ -381,11 +420,11 @@ export class MassCloneWorkflow {
         `Mass clone: ${target.name} hit a transient draft publishing error; clearing the draft and retrying once.`,
       );
       await this.rollbackTarget(report, target.accountId);
-      const retrySuccess = await this.runOneClone();
-      report = state.lastOperationReport || null;
+      const second = await this.runOneClone(arm, target);
+      report = second.report;
       row.counts = report?.counts || null;
       row.retried = true;
-      if (retrySuccess) {
+      if (second.success) {
         row.status = "success";
         log("info", `Mass clone: ${target.name} cloned on retry.`);
         return true;
@@ -416,7 +455,12 @@ export class MassCloneWorkflow {
     return false;
   }
 
-  async run() {
+  /** Runs the batch again for the accounts that failed in the last one. */
+  async retryFailed() {
+    return this.run({ retryFailed: true });
+  }
+
+  async run(options = {}) {
     const { state } = this.dependencies;
     const { log } = this.dependencies.logging;
     if (this.dependencies.initializeSession) {
@@ -444,11 +488,33 @@ export class MassCloneWorkflow {
       log("warn", "Pick a source account and campaign in the Clone tab first.");
       return false;
     }
-    const targets = this.selectedTargets();
+    const failedBefore = (this.lastTargets || []).filter(
+      (_, index) => state.massResults?.[index]?.status === "failed",
+    );
+    const targets =
+      options?.retryFailed === true ? failedBefore : this.selectedTargets();
     if (!targets.length) {
-      log("warn", "Select at least one target account for the mass clone.");
+      log(
+        "warn",
+        options?.retryFailed === true
+          ? "There are no failed accounts to retry."
+          : "Select at least one target account for the mass clone.",
+      );
       return false;
     }
+    this.lastTargets = targets;
+    this.concurrency = Math.max(
+      1,
+      Math.min(
+        Math.floor(Number(state.massConcurrency)) || MASS_CONCURRENCY,
+        targets.length,
+      ),
+    );
+    this.baseMappings = {
+      pixel: { ...(state.clonePixelMappings || {}) },
+      page: { ...(state.clonePageMappings || {}) },
+      catalog: { ...(state.cloneCatalogMappings || {}) },
+    };
     state.massRunning = true;
     state.massStop = false;
     state.massActiveAccountId = "";
@@ -476,18 +542,47 @@ export class MassCloneWorkflow {
       }
       const sourceName =
         packageData.source?.campaignName || packageData.campaign?.name || "";
-      for (let index = 0; index < targets.length; index += 1) {
-        if (state.massStop) {
-          state.massResults[index].status = "cancelled";
-          continue;
-        }
-        await this.runTarget(targets[index], {
-          packageData,
-          sourceName,
-          index,
-        });
-        this.dependencies.renderMassClone?.();
+      if (this.concurrency > 1) {
+        log(
+          "info",
+          `Mass clone: ${targets.length} account(s), ${this.concurrency} at a time.`,
+        );
       }
+      // A few accounts run side by side. Copies for the same account never
+      // do: they would write into the same draft at once.
+      const queue = targets.map((_, index) => index);
+      const inFlight = new Set();
+      const worker = async () => {
+        while (queue.length && !state.massStop) {
+          const position = queue.findIndex(
+            (index) => !inFlight.has(targets[index].accountId),
+          );
+          if (position < 0) {
+            await sleep(300);
+            continue;
+          }
+          const [index] = queue.splice(position, 1);
+          const { accountId } = targets[index];
+          inFlight.add(accountId);
+          try {
+            await this.runTarget(targets[index], {
+              packageData,
+              sourceName,
+              index,
+            });
+          } catch (error) {
+            const row = state.massResults[index];
+            row.status = "failed";
+            row.message = String(error?.message || error).slice(0, 400);
+            log("error", `Mass clone: ${targets[index].name} failed.`, error);
+          } finally {
+            inFlight.delete(accountId);
+            this.dependencies.renderMassClone?.();
+          }
+        }
+      };
+      await Promise.all(Array.from({ length: this.concurrency }, worker));
+      for (const index of queue) state.massResults[index].status = "cancelled";
       const done = state.massResults.filter(
         (r) => r.status === "success",
       ).length;
@@ -506,6 +601,11 @@ export class MassCloneWorkflow {
       );
       return failed === 0 && done > 0;
     } finally {
+      // Hand the selections made before the batch back to the panel.
+      state.clonePixelMappings = this.baseMappings.pixel;
+      state.clonePageMappings = this.baseMappings.page;
+      state.cloneCatalogMappings = this.baseMappings.catalog;
+      this.baseMappings = null;
       state.massRunning = false;
       state.massStopping = false;
       state.massActiveAccountId = "";

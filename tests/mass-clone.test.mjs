@@ -38,6 +38,8 @@ function createHarness({
     massResults: [],
     massActiveAccountId: "",
     lastOperationReport: null,
+    // The fake operation below shares one report slot, like the old runner.
+    massConcurrency: 1,
   };
   const calls = [];
   const logEntries = [];
@@ -239,9 +241,96 @@ test("a chosen fan page and catalog are pinned for that target only", async () =
     pageId: "page-a",
     catalogId: "cat-a",
   };
+  const seen = {};
+  const original = workflow.dependencies.runOperation;
+  workflow.dependencies.runOperation = async (kind) => {
+    seen[state.cloneTargetAccountId] = {
+      page: state.clonePageMappings["111222333"],
+      catalog: state.cloneCatalogMappings["123456789"],
+      pixel: state.clonePixelMappings?.["src-px"],
+    };
+    return original(kind);
+  };
   await workflow.run();
-  assert.equal(state.clonePageMappings["111222333"], "page-a");
-  assert.equal(state.cloneCatalogMappings["123456789"], "cat-a");
+  assert.deepEqual(seen["111"], {
+    page: "page-a",
+    catalog: "cat-a",
+    pixel: "px-111",
+  });
+  // The next account made no choice: nothing of the first one reaches it.
+  assert.equal(seen["222"].page, "111222333");
+  assert.equal(seen["222"].catalog, "");
+  // ...and the panel gets its own selections back after the batch.
+  assert.equal(state.clonePageMappings["111222333"], "111222333");
+  assert.equal(state.cloneCatalogMappings["123456789"], "");
+});
+
+test("accounts run side by side with their own selections; copies of one account do not", async () => {
+  const { workflow, state } = createHarness();
+  state.massConcurrency = 3;
+  state.accounts = [
+    ...state.accounts,
+    { id: "777", name: "Good C", account_status: 1, currency: "USD" },
+    { id: "888", name: "Good D", account_status: 1, currency: "USD" },
+  ];
+  state.massTargets[111] = { selected: true, pixelId: "px-111", copies: 2 };
+  state.massTargets[777] = { selected: true, pixelId: "px-777" };
+  state.massTargets[888] = { selected: true, pixelId: "px-888" };
+  let running = 0;
+  let peak = 0;
+  const active = new Set();
+  const seen = [];
+  workflow.dependencies.runOperation = async (kind, options) => {
+    // The real coordinator snapshots the state here, before any await.
+    const accountId = state.cloneTargetAccountId;
+    const pixel = state.clonePixelMappings?.["src-px"];
+    assert.equal(
+      active.has(accountId),
+      false,
+      "one account, one clone at a time",
+    );
+    assert.equal(options.confirmCatalogChanges, true);
+    active.add(accountId);
+    running += 1;
+    peak = Math.max(peak, running);
+    await new Promise((resolve) => setTimeout(resolve, 15));
+    running -= 1;
+    active.delete(accountId);
+    seen.push({ accountId, pixel, prefix: options.logPrefix });
+    return {
+      started: true,
+      success: accountId !== "777",
+      report: {
+        status: accountId === "777" ? "failed" : "success",
+        created: [],
+        issues: accountId === "777" ? [{ message: "boom 777" }] : [],
+        counts: { campaign: 1, adset: 1, ad: 1 },
+      },
+    };
+  };
+  await workflow.run();
+  assert.equal(peak, 3);
+  assert.equal(seen.length, 5);
+  for (const item of seen) {
+    if (item.accountId !== "222") {
+      assert.equal(item.pixel, `px-${item.accountId}`);
+    }
+    assert.ok(item.prefix, "log lines of a parallel run name the account");
+  }
+  const failed = state.massResults.filter((row) => row.status === "failed");
+  assert.deepEqual(
+    failed.map((row) => [row.accountId, row.message]),
+    [["777", "boom 777"]],
+  );
+
+  // Retry runs the failed account only.
+  seen.length = 0;
+  await workflow.retryFailed();
+  assert.deepEqual(
+    seen.map((item) => item.accountId),
+    ["777"],
+  );
+  assert.equal(state.massResults.length, 1);
 });
 
 test("an untargeted custom page or catalog keeps the automatic mapping", async () => {

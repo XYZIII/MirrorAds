@@ -337,6 +337,51 @@ test("operation snapshots selections and excludes a concurrent operation", async
   assert.equal(observed.importPackage.ads[0].name, "Ad");
   assert.equal(state.busy, false);
 });
+test("batch operations run side by side on separate snapshots", async () => {
+  const state = stateForImport();
+  state.clonePackage = state.importPackage;
+  state.cloneSourceAccountId = "S";
+  state.cloneSourceCampaignId = "1";
+  const releases = [];
+  const observed = [];
+  const coordinator = new OperationCoordinator({
+    state,
+    initializeSession: async () => {},
+    onChange: () => {},
+    onReport: () => {},
+    createRuntime: (context) => ({
+      cloneWorkflow: {
+        cloneCampaignToAccount: async () => {
+          await new Promise((resolve) => releases.push(resolve));
+          observed.push(context.state.cloneTargetAccountId);
+          return context.state.cloneTargetAccountId !== "B";
+        },
+      },
+    }),
+  });
+  state.cloneTargetAccountId = "A";
+  const first = coordinator.runBatch("clone", {});
+  state.cloneTargetAccountId = "B";
+  const second = coordinator.runBatch("clone", {});
+  state.cloneTargetAccountId = "C";
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  // A single operation is refused while the batch is in flight.
+  assert.equal(await coordinator.run("import"), false);
+  releases[0]();
+  const a = await first;
+  assert.equal(state.busy, true, "busy until the last batch operation ends");
+  releases[1]();
+  const b = await second;
+  assert.deepEqual(observed, ["A", "B"]);
+  assert.deepEqual(
+    [a.started, a.success, b.started, b.success],
+    [true, true, true, false],
+  );
+  assert.equal(a.report.accountId, "A");
+  assert.equal(b.report.accountId, "B");
+  assert.equal(state.busy, false);
+  assert.equal(coordinator.active, null);
+});
 function directFixture(failActivation = false) {
   const state = stateForImport();
   state.operationReport = new OperationReport({

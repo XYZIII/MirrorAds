@@ -14,8 +14,9 @@ export class ReportActions {
     this.dependencies = dependencies;
     this.pauseCampaigns = this.pauseCampaigns.bind(this);
     this.changeBudgets = this.changeBudgets.bind(this);
-    this.listActiveCampaigns = this.listActiveCampaigns.bind(this);
-    this.pauseCampaign = this.pauseCampaign.bind(this);
+    this.listCampaigns = this.listCampaigns.bind(this);
+    this.setCampaignStatus = this.setCampaignStatus.bind(this);
+    this.setCampaignBudget = this.setCampaignBudget.bind(this);
   }
 
   activeCampaigns(accountId, fields) {
@@ -27,29 +28,53 @@ export class ReportActions {
     });
   }
 
-  /** Campaigns that are switched on in one account, for the Reports list. */
-  async listActiveCampaigns(accountId) {
-    const rows = await this.activeCampaigns(
-      normalizeAccountId(accountId),
-      "id,name,daily_budget",
+  /**
+   * Campaigns of one account for the Reports list: the running ones first,
+   * then the ones that are switched off. Archived and deleted are left out.
+   */
+  async listCampaigns(accountId) {
+    const { graphGetAll } = this.dependencies.graphClient;
+    const rows = await graphGetAll(
+      `act_${normalizeAccountId(accountId)}/campaigns`,
+      {
+        fields: "id,name,status,effective_status,daily_budget",
+        effective_status: '["ACTIVE","PAUSED"]',
+        limit: 500,
+      },
     );
-    return rows.map((row) => ({
-      id: String(row.id),
-      name: String(row.name || row.id),
-      dailyBudget: Number(row.daily_budget) || 0,
-    }));
+    return rows
+      .map((row) => ({
+        id: String(row.id),
+        name: String(row.name || row.id),
+        dailyBudget: Number(row.daily_budget) || 0,
+        on: String(row.effective_status || row.status) === "ACTIVE",
+      }))
+      .sort((a, b) => Number(b.on) - Number(a.on));
   }
 
-  /** Switches one campaign off; throws when Meta refuses. */
-  async pauseCampaign(campaignId) {
+  /** Switches one campaign on or off; throws when Meta refuses. */
+  async setCampaignStatus(campaignId, on) {
     const { graphFetch } = this.dependencies.graphClient;
     await graphFetch(String(campaignId), {
       method: "POST",
-      body: { status: "PAUSED" },
+      body: { status: on ? "ACTIVE" : "PAUSED" },
     });
     this.dependencies.logging.log(
       "info",
-      `Campaign ${campaignId} switched off from Reports.`,
+      `Campaign ${campaignId} switched ${on ? "on" : "off"} from Reports.`,
+    );
+  }
+
+  /** Sets the daily budget of one campaign, in the API's minor units. */
+  async setCampaignBudget(campaignId, apiAmount) {
+    const { graphFetch } = this.dependencies.graphClient;
+    await graphFetch(String(campaignId), {
+      method: "POST",
+      body: { daily_budget: apiAmount },
+    });
+    this.dependencies.logging.log(
+      "info",
+      `Campaign ${campaignId}: daily budget set to ${apiAmount} (minor units) from Reports.`,
     );
   }
 

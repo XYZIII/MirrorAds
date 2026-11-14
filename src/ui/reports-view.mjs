@@ -48,6 +48,7 @@ export class ReportsView {
         return view.dependencies.reportActions;
       },
       render: () => this.render(),
+      panel: () => this.panel,
     });
   }
 
@@ -402,6 +403,7 @@ export class ReportsView {
     state.reportOpen = "";
     state.reportCamps = {};
     state.reportArm = "";
+    state.reportEdit = "";
     if (!state.sessionReady || !(state.accounts || []).length) {
       state.reportError = t("reports.waiting");
       this.render();
@@ -497,8 +499,8 @@ export class ReportsView {
         ? ""
         : delivers
           ? `${
-              row.activeCampaigns
-                ? `<button type="button" class="ma-rep-on ma-rep-toggle${this.dependencies.state.reportOpen === row.accountId ? " is-open" : ""}" data-always-enabled data-report="camps:${escapeHtml(row.accountId)}" title="${escapeHtml(t("reports.camps.show"))}">${escapeHtml(
+              row.activeCampaigns || row.inactiveCampaigns
+                ? `<button type="button" class="ma-rep-on ma-rep-toggle${row.activeCampaigns ? "" : " is-zero"}${this.dependencies.state.reportOpen === row.accountId ? " is-open" : ""}" data-always-enabled data-report="camps:${escapeHtml(row.accountId)}" title="${escapeHtml(t("reports.camps.show"))}">${escapeHtml(
                     t("reports.active", { count: row.activeCampaigns }),
                   )} ▾</button>`
                 : `<i class="ma-rep-on is-zero" title="${escapeHtml(t("reports.activeHint"))}">${escapeHtml(
