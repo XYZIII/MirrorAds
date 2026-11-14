@@ -33,7 +33,9 @@ export async function indexMediaFilesBySha256(files, options = {}) {
 }
 
 export function normalizeMediaSha256(value) {
-  const hash = String(value || "").trim().toLowerCase();
+  const hash = String(value || "")
+    .trim()
+    .toLowerCase();
   return SHA256_HEX.test(hash) ? hash : "";
 }
 

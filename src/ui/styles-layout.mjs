@@ -1,3 +1,4 @@
+import { buildDialogStyles } from "./styles-dialog.mjs";
 import { buildReportStyles } from "./styles-reports.mjs";
 
 /**
@@ -675,6 +676,12 @@ export function buildLayoutStyles(appId) {
       }
       ${A} .ma-macros-pop code { background: #ecfbd6; color: var(--ma-lime-deep); }
       ${A} .ma-macros-pop span { color: var(--ma-muted); }
+      ${A} .ma-macros-pop { z-index: 40; }
+      ${A} .ma-macros-pop ul { list-style: none; margin: 8px 0 0; padding: 0; }
+      ${A} .ma-macros-pop li { margin: 0; padding: 2px 0; line-height: 1.5; }
+      ${A} .ma-macros-pop code { cursor: pointer; transition: background 0.12s ease; }
+      ${A} .ma-macros-pop code:hover { background: var(--ma-lime); color: var(--ma-ink); }
+      ${buildDialogStyles(A)}
 
       ${buildReportStyles(A)}
       /* ---- log ---- */

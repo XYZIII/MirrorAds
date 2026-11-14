@@ -143,9 +143,7 @@ test("export writes JSON last with real MIME names and import matches by hash", 
     sourceImageRecoveryCache: new Map(),
     sourceVideoRecoveryCache: new Map(),
   });
-  const [slot] = slotsService.getCreativeMediaSlots(
-    savedPackage.creatives[0],
-  );
+  const [slot] = slotsService.getCreativeMediaSlots(savedPackage.creatives[0]);
   assert.equal(slot.expectedFileName, "Ad__image_01.webp");
   assert.equal(slot.expectedSha256, media.sha256);
   assert.equal(slotsService.getDefaultMediaFile(slot), renamed);

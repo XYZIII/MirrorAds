@@ -75,7 +75,10 @@ function workflowWith(state) {
 test("a JSON source skips the Ads Manager export", async () => {
   const state = {
     cloneSourceKind: "json",
-    clonePackage: readClonePackageFromJson(JSON.stringify(sampleFile), "f.json"),
+    clonePackage: readClonePackageFromJson(
+      JSON.stringify(sampleFile),
+      "f.json",
+    ),
     cloneSourceAccountId: "",
     cloneSourceCampaignId: "",
     clonePackageLoading: false,

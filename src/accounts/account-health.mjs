@@ -95,8 +95,10 @@ const FRAGMENT_ERROR_HINTS = new Map([
   [
     1772145,
     {
-      label: "Instagram actor is not linked to the target Facebook Page (Meta error 1772145)",
-      advice: "Retry with the current build so MirrorAds recreates the target page-backed identity; do not reuse the source Instagram actor.",
+      label:
+        "Instagram actor is not linked to the target Facebook Page (Meta error 1772145)",
+      advice:
+        "Retry with the current build so MirrorAds recreates the target page-backed identity; do not reuse the source Instagram actor.",
     },
   ],
 ]);

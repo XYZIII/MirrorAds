@@ -1,4 +1,8 @@
 import {
+  draftObjectStatus,
+  valueRuleBidStrategy,
+} from "../domain/draft-defaults.mjs";
+import {
   hasAdsetDayParting,
   hasCampaignLevelBudget,
   pushDraftBidFields,
@@ -62,7 +66,7 @@ export class DraftWriter {
     const values = [
       draftItem("name", state.importCampaignName || campaign.name),
       draftItem("objective", objective),
-      draftItem("status", state.importStatus),
+      draftItem("status", draftObjectStatus("campaign", campaign)),
       draftJsonItem(
         "special_ad_categories",
         campaign.special_ad_categories || [],
@@ -210,7 +214,7 @@ export class DraftWriter {
       draftItem("parentAdObjectID", campaignDraftId),
       draftItem("campaign_id", campaignDraftId),
       draftItem("account_id", accountId),
-      draftItem("status", state.importStatus),
+      draftItem("status", draftObjectStatus("adset", adset)),
       draftItem("optimization_goal", adset.optimization_goal),
       draftItem("billing_event", adset.billing_event),
       draftJsonItem("targeting", cleanTargeting(adset.targeting, adset.name)),
@@ -331,6 +335,26 @@ export class DraftWriter {
     };
     let json;
     if (adsetUsesValueRules(adset)) {
+      // Ads Manager shows "Value rules: not available" unless the ad set
+      // itself names a bid strategy; with a campaign budget it has none.
+      const strategy = valueRuleBidStrategy(adset, options);
+      const bidValues = strategy
+        ? [
+            draftItem("bid_strategy", strategy),
+            ...(typeof adset.is_autobid === "boolean"
+              ? []
+              : [
+                  draftValueItem(
+                    "is_autobid",
+                    strategy === "LOWEST_COST_WITHOUT_CAP",
+                  ),
+                ]),
+          ]
+        : [];
+      this.dependencies.logging.log(
+        "info",
+        `Value rules check for "${adset.name}": ad set bid_strategy=${adset.bid_strategy || "-"}, is_autobid=${adset.is_autobid ?? "-"}, bid_amount=${adset.bid_amount || "-"}, goal=${adset.optimization_goal || "-"}; campaign bid_strategy=${options.campaignBidStrategy || "-"}, campaign budget=${options.hasCampaignBudget ? "yes" : "no"}; written to the ad set: ${strategy || "nothing extra"}.`,
+      );
       try {
         json = await createDraftFragmentWithRecovery(
           draftId,
@@ -338,6 +362,7 @@ export class DraftWriter {
             ...body,
             values: [
               ...values,
+              ...bidValues,
               draftItem("value_rule_set_id", adset.value_rule_set_id),
               draftValueItem("value_rules_applied", true),
             ],
@@ -394,7 +419,7 @@ export class DraftWriter {
       draftItem("adset_id", adsetDraftId),
       draftItem("account_id", accountId),
       draftValueItem("display_sequence", 0),
-      draftItem("status", state.importStatus),
+      draftItem("status", draftObjectStatus("ad", ad)),
       draftJsonItem("creative", creativeRaw),
       draftValueItem("campaign_index", 0),
       draftItem("ad_creation_source", "click_quick_create"),

@@ -26,7 +26,9 @@ const thumb = {
 };
 
 test("a dropped file fills the slot with the same exported name", () => {
-  const files = new Map([["SlimTeaPro-ad__image_01.jpg", { name: "SlimTeaPro-ad__image_01.jpg" }]]);
+  const files = new Map([
+    ["SlimTeaPro-ad__image_01.jpg", { name: "SlimTeaPro-ad__image_01.jpg" }],
+  ]);
   const result = matchMediaSlots({ slots: [image, video], files });
   assert.equal(result.matched, 1);
   assert.equal(result.missing, 1);

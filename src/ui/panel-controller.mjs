@@ -586,9 +586,20 @@ export class PanelController {
         event.stopPropagation();
         dom.macrosPop.classList.toggle("ma-hidden");
       });
-      dom.macrosPop.addEventListener("click", (event) =>
-        event.stopPropagation(),
-      );
+      dom.macrosPop.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const macro = event.target.closest("code")?.textContent;
+        const input = root.querySelector(`#${APP_ID}-clone-campaign-name`);
+        if (!macro || !input || input.disabled) return;
+        // Insert at the caret (or over the selection) and keep typing there.
+        const start = input.selectionStart ?? input.value.length;
+        const end = input.selectionEnd ?? start;
+        input.value =
+          input.value.slice(0, start) + macro + input.value.slice(end);
+        input.focus();
+        input.setSelectionRange(start + macro.length, start + macro.length);
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      });
       document.addEventListener("click", () => {
         dom.macrosPop?.classList.add("ma-hidden");
       });

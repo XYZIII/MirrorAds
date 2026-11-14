@@ -71,9 +71,9 @@ test("panel mounts, locks every setting during operation and renders downloadabl
     assert.ok(dom.root.isConnected);
     state.operationActive = true;
     services.panelView.renderButtons();
-    const lockable = [...dom.root.querySelectorAll("input,select,button")].filter(
-      (x) => x.dataset.alwaysEnabled === undefined,
-    );
+    const lockable = [
+      ...dom.root.querySelectorAll("input,select,button"),
+    ].filter((x) => x.dataset.alwaysEnabled === undefined);
     assert.ok(lockable.length > 0);
     assert.ok(lockable.every((x) => x.disabled));
     assert.equal(services.panelController.destroy(), false);

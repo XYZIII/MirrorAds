@@ -267,7 +267,7 @@ const DICT = {
     "import.json": "Export JSON file",
 
     "macros.title": "Name macros",
-    "macros.hint": "Use them in the campaign name template:",
+    "macros.hint": "Click a macro to insert it into the name template:",
     "macros.auto":
       "source name with the account marker (id, its first 4 digits or the account label) replaced by the full id of the target account (default)",
     "macros.id4": "first 4 digits of the target account id",
@@ -582,7 +582,7 @@ const DICT = {
     "import.json": "JSON-файл экспорта",
 
     "macros.title": "Макросы названия",
-    "macros.hint": "Используйте их в шаблоне названия кампании:",
+    "macros.hint": "Нажмите на макрос, чтобы вставить его в шаблон названия:",
     "macros.auto":
       "название источника, где метка кабинета (id, его первые 4 цифры или имя кабинета) заменена на полный id целевого (по умолчанию)",
     "macros.id4": "первые 4 цифры id целевого кабинета",

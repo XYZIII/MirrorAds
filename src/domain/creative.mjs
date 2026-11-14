@@ -440,7 +440,8 @@ export function materializePageMappedPackage(packageData, pageMappings) {
 export function remapCreativeSequence(sequence, creativeMap) {
   const resolveId = (sourceId) => {
     const key = String(sourceId ?? "");
-    if (!key) throw new Error("Creative sequence contains an empty creative ID.");
+    if (!key)
+      throw new Error("Creative sequence contains an empty creative ID.");
     let mapped =
       creativeMap instanceof Map
         ? (creativeMap.get(sourceId) ?? creativeMap.get(key))

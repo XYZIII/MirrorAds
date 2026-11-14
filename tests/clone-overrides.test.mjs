@@ -270,3 +270,48 @@ test("a fixed USD budget is refused without a rate for the account", async () =>
   assert.deepEqual(writes, []);
   assert.equal(results[0].failed, 1);
 });
+
+test("draft clones are left switched on, source switches kept below the campaign", async () => {
+  const { draftObjectStatus, valueRuleBidStrategy } =
+    await import("../src/domain/draft-defaults.mjs");
+  assert.equal(draftObjectStatus("campaign", { status: "PAUSED" }), "ACTIVE");
+  assert.equal(draftObjectStatus("adset", { status: "ACTIVE" }), "ACTIVE");
+  assert.equal(draftObjectStatus("adset", {}), "ACTIVE");
+  assert.equal(draftObjectStatus("ad", { status: "PAUSED" }), "PAUSED");
+
+  // Campaign budget: the ad set has no strategy of its own, so it gets the campaign's.
+  assert.equal(
+    valueRuleBidStrategy(
+      {},
+      {
+        hasCampaignBudget: true,
+        campaignBidStrategy: "LOWEST_COST_WITHOUT_CAP",
+      },
+    ),
+    "LOWEST_COST_WITHOUT_CAP",
+  );
+  assert.equal(
+    valueRuleBidStrategy({}, { hasCampaignBudget: true }),
+    "LOWEST_COST_WITHOUT_CAP",
+  );
+  assert.equal(
+    valueRuleBidStrategy(
+      {},
+      { hasCampaignBudget: true, campaignBidStrategy: "COST_CAP" },
+    ),
+    "COST_CAP",
+  );
+  // Value rules do not exist for bid cap / ROAS, and an ad set that already
+  // names its strategy needs nothing.
+  assert.equal(
+    valueRuleBidStrategy(
+      {},
+      {
+        hasCampaignBudget: true,
+        campaignBidStrategy: "LOWEST_COST_WITH_BID_CAP",
+      },
+    ),
+    "",
+  );
+  assert.equal(valueRuleBidStrategy({ bid_strategy: "COST_CAP" }, {}), "");
+});

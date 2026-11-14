@@ -27,6 +27,7 @@ export class ReportView {
     node.setAttribute("role", "dialog");
     node.setAttribute("aria-modal", "true");
     node.classList.add("ma-report-card");
+    if (data.status !== "success") node.classList.add("is-problem");
     const operation = t(`report.kind.${data.kind}`);
     node.dataset.reportKind = data.kind;
     node.innerHTML = `<div class="ma-report-head">
@@ -106,7 +107,7 @@ export class ReportView {
     overlay.className = "ma-overlay";
     overlay.dataset.reportKind = "clone";
     const card = document.createElement("section");
-    card.className = "ma-card ma-report-card";
+    card.className = `ma-card ma-report-card${failed || skipped || cancelled ? " is-problem" : ""}`;
     card.setAttribute("role", "dialog");
     card.setAttribute("aria-modal", "true");
     card.dataset.reportKind = "clone";
