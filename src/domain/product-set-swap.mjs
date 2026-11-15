@@ -56,31 +56,46 @@ function styled(found, from, replacement) {
  */
 export function renameSetToken(text, from, to) {
   const source = String(text ?? "");
-  const chunks = String(from || "")
-    .split(SEPARATORS)
-    .filter(Boolean)
-    .map(escapeRegExp);
-  if (!chunks.length || !to || from === to) return source;
-  const pattern = new RegExp(
-    `(?<![\\p{L}\\p{N}])${chunks.join(OPTIONAL_SEPARATOR)}(?![\\p{L}\\p{N}])`,
-    "giu",
-  );
+  const pattern = tokenPattern(from);
+  if (!pattern || !to || from === to) return source;
   return source.replace(pattern, (found) =>
     styled(found, String(from), String(to)),
   );
 }
 
-const WORD_BREAKS = /[\s|/\\,;:()[\]{}]+/;
+/** The pattern for a name standing as a whole word, or null for nothing. */
+function tokenPattern(from) {
+  const chunks = String(from || "")
+    .split(SEPARATORS)
+    .filter(Boolean)
+    .map(escapeRegExp);
+  if (!chunks.length) return null;
+  return new RegExp(
+    `(?<![\\p{L}\\p{N}])${chunks.join(OPTIONAL_SEPARATOR)}(?![\\p{L}\\p{N}])`,
+    "giu",
+  );
+}
 
+/** Whether a name carries the text the way renameSetToken finds it. */
+function carries(name, text) {
+  const pattern = tokenPattern(text);
+  return Boolean(pattern) && pattern.test(String(name ?? ""));
+}
+
+const WORD = /[^\s|/\\,;:()[\]{}]+/g;
+
+/** The words of a name with where they stand, so a run of them can be cut out. */
 function wordsOf(name) {
-  return String(name || "")
-    .split(WORD_BREAKS)
-    .filter(Boolean);
+  return [...String(name || "").matchAll(WORD)].map((match) => ({
+    text: match[0],
+    start: match.index,
+    end: match.index + match[0].length,
+  }));
 }
 
 /** A word without its separators and letter case: "creo_V4" is "creov4". */
 function plain(word) {
-  return word.toLowerCase().replace(/[_.-]+/g, "");
+  return word.toLowerCase().replace(/[\s_.-]+/g, "");
 }
 
 /** A word with its numbers blanked: "creo_V4" and "Creo-V12" share "creov#". */
@@ -88,49 +103,97 @@ function stemOf(word) {
   return plain(word.replace(/\d+/g, "#"));
 }
 
+/** A word's look: "creo_V4" and "Promo_V12" are both "a_a#". */
+function shapeOf(word) {
+  return word
+    .replace(/\p{L}+/gu, "a")
+    .replace(/\d+/g, "#")
+    .replace(/[\s_.-]+/g, "_");
+}
+
 const hasLetter = (word) => /\p{L}/u.test(word);
 
 /**
- * The renames to try for one set. Sets are named after the creative, but a
- * set's name may carry more words than the names of the ads and campaigns:
- * "creo_V4 NEW NEW" for ads named "creo_V4". So besides the whole name, a
- * word of the old name is paired with the word of the new name that differs
- * from it only in its numbers — "creo_V4" with "creo_V5" — and that pair
- * renames the names that carry the creative alone. Words both names share
- * ("AU") are left alone, and so are bare numbers.
+ * The part of the old set's name that the names carry: the longest run of
+ * its words standing in one of them — "creo_V4" of "creo_V4 NEW NEW" when
+ * the ads are named "creo_V4".
  */
-export function renamePairs(fromName, toName) {
+function carriedRun(fromName, names) {
+  const words = wordsOf(fromName);
+  const runs = [];
+  for (let start = 0; start < words.length; start += 1) {
+    for (let end = start + 1; end <= words.length; end += 1) {
+      const text = fromName.slice(words[start].start, words[end - 1].end);
+      if (hasLetter(text)) runs.push({ start, end, text });
+    }
+  }
+  runs.sort(
+    (a, b) =>
+      b.end - b.start - (a.end - a.start) || b.text.length - a.text.length,
+  );
+  return runs.find((run) => names.some((name) => carries(name, run.text)));
+}
+
+/**
+ * The new set's name without the words the old set's name had besides the
+ * creative ("NEW NEW"). When several words are still left, the one that
+ * looks like the old creative is it: "promo_V1" of "promo_V1 TEST" for
+ * "creo_V4". Empty when nothing but those extra words is left.
+ */
+function newCreative(toName, extras, oldCreative) {
+  const words = wordsOf(toName);
+  const pending = extras.map((word) => plain(word.text));
+  let pick = words.filter((word) => {
+    const index = pending.indexOf(plain(word.text));
+    if (index < 0) return true;
+    pending.splice(index, 1);
+    return false;
+  });
+  if (pick.length > 1 && wordsOf(oldCreative).length === 1) {
+    for (const alike of [stemOf, shapeOf]) {
+      const found = pick.filter(
+        (word) => alike(word.text) === alike(oldCreative),
+      );
+      if (found.length === 1) {
+        pick = found;
+        break;
+      }
+    }
+  }
+  if (!pick.length) return "";
+  const first = words.indexOf(pick[0]);
+  const together = pick.every((word, index) => words[first + index] === word);
+  return together
+    ? toName.slice(pick[0].start, pick[pick.length - 1].end)
+    : pick.map((word) => word.text).join(" ");
+}
+
+/**
+ * The renames for one set. Sets are named after the creative, sometimes
+ * with more words: "creo_V4 NEW NEW" for ads named "creo_V4". The ads tell
+ * which part of the set's name is the creative (the other names, when no
+ * ad carries any of it); that part becomes the new set's name without the
+ * old one's extra words — "promo_V1" for the set "promo_V1" or
+ * "promo_V1 NEW NEW". Where a name carries the whole old set name, the
+ * whole new name goes in first.
+ */
+export function renamePairs(fromName, toName, { ads = [], others = [] } = {}) {
   const from = String(fromName || "").trim();
   const to = String(toName || "").trim();
   if (!from || !to || from === to) return [];
   const whole = { from, to };
-  const oldWords = wordsOf(from);
-  const newWords = wordsOf(to);
-  if (oldWords.length === 1 && newWords.length === 1) return [whole];
-  const shared = (word, words) =>
-    words.some((other) => plain(other) === plain(word));
-  const removed = oldWords.filter(
-    (word) => hasLetter(word) && !shared(word, newWords),
-  );
-  const added = newWords.filter(
-    (word) => hasLetter(word) && !shared(word, oldWords),
-  );
-  const words = [];
-  for (const word of removed) {
-    const match = added.find((other) => stemOf(other) === stemOf(word));
-    if (match && !words.some((pair) => plain(pair.from) === plain(word))) {
-      words.push({ from: word, to: match, core: true });
-    }
+  const run = carriedRun(from, ads) || carriedRun(from, others);
+  if (!run) return [whole];
+  const words = wordsOf(from);
+  const extras = [...words.slice(0, run.start), ...words.slice(run.end)];
+  const creative = newCreative(to, extras, run.text);
+  const changes = Boolean(creative) && plain(creative) !== plain(run.text);
+  if (!extras.length) {
+    return [changes ? { from: run.text, to: creative } : whole];
   }
-  if (!words.length && removed.length === 1 && added.length === 1) {
-    words.push({ from: removed[0], to: added[0], core: true });
-  }
-  // The whole name goes first: where a name carries all of it, all of it
-  // changes. A one-word old name with a longer new one would bring the new
-  // set's extra words into the names, so there only the words change.
-  const pairs = oldWords.length > 1 ? [whole] : [];
-  pairs.push(...words);
-  return pairs.length ? pairs : [whole];
+  return changes
+    ? [whole, { from: run.text, to: creative, core: true }]
+    : [whole];
 }
 
 /**
@@ -190,10 +253,24 @@ export function swapProductSets(packageData, swaps) {
       ? { ...(getPackageProductSetById(packageData, to) || {}), id: to }
       : set;
   });
+  const text = (value) => (typeof value === "string" && value ? [value] : []);
+  const names = {
+    ads: (packageData.ads || []).flatMap((ad) => text(ad?.name)),
+    others: [
+      ...text(packageData.campaign?.name),
+      ...text(packageData.source?.campaignName),
+      ...(packageData.adsets || []).flatMap((adset) => text(adset?.name)),
+      ...(packageData.creatives || []).flatMap((creative) => [
+        ...text(creative?.name),
+        ...text(creative?.raw?.name),
+      ]),
+    ],
+  };
   const renamed = entries.flatMap(([from, to]) =>
     renamePairs(
       getPackageProductSetById(packageData, from)?.name || "",
       getPackageProductSetById(packageData, to)?.name || "",
+      names,
     ),
   );
   const changes = { campaign: false, adsets: 0, ads: 0, creatives: 0 };

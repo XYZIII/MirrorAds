@@ -5,6 +5,16 @@
  */
 export const CHANGELOG = [
   {
+    version: "151126b11",
+    date: "2026-11-15",
+    ru: [
+      "Смена сета работает и для сета другого креатива: из «creo_V4 NEW NEW» на «promo_V1» — creo_V4 в названиях станет promo_V1. Какая часть имени сета — креатив, скрипт смотрит по названиям объявлений, а лишние слова старого сета в новые названия не переносит.",
+    ],
+    en: [
+      "The set switch also works for a set of another creative: from “creo_V4 NEW NEW” to “promo_V1”, creo_V4 in names becomes promo_V1. The ad names tell which part of the set's name is the creative, and the old set's extra words stay out of the new names.",
+    ],
+  },
+  {
     version: "151126b10",
     date: "2026-11-15",
     ru: [

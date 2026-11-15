@@ -211,43 +211,83 @@ test("names are found whatever their case and separators, and keep their own sty
   assert.equal(renameSetToken("creo_V4", "creo_V4", "___"), "___");
 });
 
-test("a set with extra words still renames the creative's name", () => {
+test("the ads tell which part of the set's name is the creative", () => {
   const core = (from, to) => ({ from, to, core: true });
+  const ads = (...names) => ({ ads: names });
   // One word each: the whole name is the creative.
-  assert.deepEqual(renamePairs("creo_V4", "creo_V5"), [
+  assert.deepEqual(renamePairs("creo_V4", "creo_V5", ads("creo_V4")), [
     { from: "creo_V4", to: "creo_V5" },
   ]);
-  assert.deepEqual(renamePairs("creo_V9", "creo_V10"), [
+  assert.deepEqual(renamePairs("creo_V9", "creo_V10", ads("creo_V9 1x1")), [
     { from: "creo_V9", to: "creo_V10" },
   ]);
-  assert.deepEqual(renamePairs("Same", "Same"), []);
+  assert.deepEqual(renamePairs("Same", "Same", ads("Same")), []);
   // Extra words on the old set: its whole name, then the creative alone.
-  assert.deepEqual(renamePairs("creo_V4 NEW NEW", "creo_V5"), [
+  assert.deepEqual(renamePairs("creo_V4 NEW NEW", "creo_V5", ads("creo_V4")), [
     { from: "creo_V4 NEW NEW", to: "creo_V5" },
     core("creo_V4", "creo_V5"),
   ]);
-  assert.deepEqual(renamePairs("creo_V4 AU", "creo_V5 AU"), [
+  // Another creative altogether, with or without the same extra words.
+  assert.deepEqual(renamePairs("creo_V4 NEW NEW", "promo_V1", ads("creo_V4")), [
+    { from: "creo_V4 NEW NEW", to: "promo_V1" },
+    core("creo_V4", "promo_V1"),
+  ]);
+  assert.deepEqual(
+    renamePairs("creo_V4 NEW NEW", "promo_V1 NEW NEW", ads("creo_V4")),
+    [
+      { from: "creo_V4 NEW NEW", to: "promo_V1 NEW NEW" },
+      core("creo_V4", "promo_V1"),
+    ],
+  );
+  assert.deepEqual(renamePairs("creo_V4 AU", "creo_V5 AU", ads("creo_V4")), [
     { from: "creo_V4 AU", to: "creo_V5 AU" },
     core("creo_V4", "creo_V5"),
   ]);
-  assert.deepEqual(renamePairs("AU | creo_V4", "AU | creo_V5"), [
-    { from: "AU | creo_V4", to: "AU | creo_V5" },
-    core("creo_V4", "creo_V5"),
+  assert.deepEqual(
+    renamePairs("AU | creo_V4", "AU | creo_V5", ads("creo_V4 9x16")),
+    [{ from: "AU | creo_V4", to: "AU | creo_V5" }, core("creo_V4", "creo_V5")],
+  );
+  // Spaces in the set's name, underscores in the ads.
+  assert.deepEqual(renamePairs("creo V4 AU", "creo V5 AU", ads("creo_V4")), [
+    { from: "creo V4 AU", to: "creo V5 AU" },
+    core("creo V4", "creo V5"),
   ]);
-  // Extra words on the new set stay out of the names.
-  assert.deepEqual(renamePairs("creo_V4", "creo_V5 NEW"), [
-    core("creo_V4", "creo_V5"),
+  // Extra words on the new set stay out of the names: the word that looks
+  // like the old creative is the new one.
+  assert.deepEqual(renamePairs("creo_V4", "creo_V5 NEW", ads("creo_V4")), [
+    { from: "creo_V4", to: "creo_V5" },
   ]);
-  // Bare numbers are never renamed on their own; unrelated names only whole.
-  assert.deepEqual(renamePairs("creo 4", "creo 5"), [
-    { from: "creo 4", to: "creo 5" },
+  assert.deepEqual(renamePairs("creo_V4", "promo_V1 TEST", ads("creo_V4")), [
+    { from: "creo_V4", to: "promo_V1" },
   ]);
-  assert.deepEqual(renamePairs("Set A", "Other"), [
+  // The ads decide, even when the campaign carries a longer part.
+  assert.deepEqual(
+    renamePairs("creo_V4 AU", "promo_V1 AU", {
+      ads: ["creo_V4"],
+      others: ["X creo_V4 AU"],
+    }),
+    [{ from: "creo_V4 AU", to: "promo_V1 AU" }, core("creo_V4", "promo_V1")],
+  );
+  // No ad carries it: the other names are asked.
+  assert.deepEqual(
+    renamePairs("creo_V4 NEW", "promo_V1", {
+      ads: ["Ad 1"],
+      others: ["AGENT_1840AU creo_V4"],
+    }),
+    [{ from: "creo_V4 NEW", to: "promo_V1" }, core("creo_V4", "promo_V1")],
+  );
+  // Nothing carries any of it, or the creative stays: only the whole name.
+  assert.deepEqual(renamePairs("Set A", "Other", ads("creo_V4")), [
     { from: "Set A", to: "Other" },
   ]);
-  assert.deepEqual(renamePairs("creo AU", "promo AU"), [
-    { from: "creo AU", to: "promo AU" },
-    core("creo", "promo"),
+  assert.deepEqual(renamePairs("creo_V4 NEW NEW", "creo_V5"), [
+    { from: "creo_V4 NEW NEW", to: "creo_V5" },
+  ]);
+  assert.deepEqual(renamePairs("creo_V4 NEW", "creo_V4 OLD", ads("creo_V4")), [
+    { from: "creo_V4 NEW", to: "creo_V4 OLD" },
+  ]);
+  assert.deepEqual(renamePairs("creo_V4 NEW", "NEW", ads("creo_V4")), [
+    { from: "creo_V4 NEW", to: "NEW" },
   ]);
 });
 
@@ -295,6 +335,20 @@ test("switching from a set with extra words renames ads, ad sets and the campaig
     adNames: state.clonePackage.ads.map((ad) => ad.name),
   });
   assert.equal(vars.creo, "creo_V5");
+
+  // A set of another creative: its name goes where the old creative stood.
+  const PROMO = "1000000000101";
+  original.catalogExports[0].productSets.push(set(PROMO, "promo_V1"));
+  chooseProductSet(state, V4, PROMO);
+  assert.deepEqual(
+    state.clonePackage.ads.map((ad) => ad.name),
+    ["promo_V1", "promo_V1"],
+  );
+  assert.equal(state.clonePackage.adsets[0].name, "AU 25+ promo_V1");
+  assert.equal(
+    setRenameSummary(state, t),
+    "“creo_V4” → “promo_V1” in the names: campaign, ad sets: 1, ads: 2.",
+  );
 });
 
 test("the panel says what will be renamed, or why nothing will", () => {
