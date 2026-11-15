@@ -23,6 +23,12 @@ import {
   validateCustomPeriod,
   zoneOffsetMinutes,
 } from "../src/domain/report-time.mjs";
+import {
+  billingInfo,
+  billingUrl,
+  payable,
+  settling,
+} from "../src/domain/billing.mjs";
 import { ReportService } from "../src/reports/report-service.mjs";
 
 const KYIV = "Europe/Kiev";
@@ -888,4 +894,74 @@ test("insights are read per campaign: the line adds them up and knows which spen
   const insights = calls.find((call) => call.path === "act_111/insights");
   assert.equal(insights.query.level, "campaign");
   assert.match(insights.query.fields, /campaign_id/);
+});
+
+test("an unpaid account says what it owes and with which card; a re-check sees it paid", async () => {
+  const meta = {
+    ...META,
+    111: {
+      ...META[111],
+      account_status: 3,
+      balance: "4250",
+      funding_source_details: { display_string: "Visa *4242" },
+    },
+    // Euro account: cents too, converted at its rate.
+    222: { ...META[222], account_status: 3, balance: "1800" },
+    333: { ...META[333], account_status: 8, balance: "990" },
+  };
+  const { service, calls } = createService({
+    meta,
+    hourlyRows: {},
+    dailyRows: {},
+  });
+  const report = await service.loadReport({
+    accounts: ACCOUNTS,
+    period: "today",
+    zoneMode: "account",
+    viewerZone: KYIV,
+    nowMs: NOW,
+  });
+  const line = (name) => report.rows.find((row) => row.name === name);
+  assert.deepEqual(
+    [
+      line("Bangkok").amountDue,
+      line("Bangkok").card,
+      line("Bangkok").amountDueUsd,
+    ],
+    [42.5, "Visa *4242", 42.5],
+  );
+  assert.deepEqual(
+    [line("Kyiv").amountDue, line("Kyiv").card, line("Kyiv").amountDueUsd],
+    [18, "", 20],
+  );
+  // A payment being processed is not asked what it owes.
+  assert.equal(line("LA").amountDue, null);
+  assert.equal(
+    calls.filter((path) => path === "act_333").length,
+    1,
+    "one read for the account under settlement",
+  );
+  assert.ok(payable(line("Bangkok")));
+  assert.ok(!payable(line("LA")));
+  assert.ok(settling(line("LA")));
+
+  meta[111] = { ...meta[111], account_status: 1, balance: "0" };
+  const fresh = await service.recheckBilling("111");
+  assert.deepEqual(
+    [fresh.health, fresh.statusCode, fresh.amountDue],
+    ["live", 1, 0],
+  );
+});
+
+test("billing amounts are in the currency's smallest unit; the payment page is Meta's", () => {
+  assert.deepEqual(billingInfo({ balance: "4250" }, "USD"), {
+    amountDue: 42.5,
+    card: "",
+  });
+  assert.equal(billingInfo({ balance: "4250" }, "JPY").amountDue, 4250);
+  assert.equal(billingInfo({}, "USD").amountDue, null);
+  assert.equal(
+    billingUrl("act_123"),
+    "https://business.facebook.com/billing_hub/payment_settings/?asset_id=123&payment_account_id=123",
+  );
 });

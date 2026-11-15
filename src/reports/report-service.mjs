@@ -1,4 +1,5 @@
 import { describeRule } from "../domain/ad-rules.mjs";
+import { billingInfo } from "../domain/billing.mjs";
 import { normalizeAccountId } from "../domain/ids.mjs";
 import { summarizeAdRows } from "../domain/report-groups.mjs";
 import {
@@ -26,6 +27,8 @@ const AD_INSIGHT_FIELDS = "ad_id,ad_name,adset_id,campaign_name,spend,actions";
 // Plain node expansions only: a sub-selection inside targeting is not
 // something every account's API answers.
 const AD_FIELDS = "name,effective_status,campaign{name},adset{targeting}";
+// The card needs more rights than the amount: without them, the amount alone.
+const BILLING_FIELDS = ["balance,funding_source_details", "balance"];
 const RULE_FIELDS =
   "id,name,status,evaluation_spec,execution_spec,schedule_spec";
 const HOURLY = "hourly_stats_aggregated_by_advertiser_time_zone";
@@ -94,6 +97,44 @@ export class ReportService {
   }
 
   /**
+   * What an unpaid account owes and the card it pays with, or null when
+   * Meta does not say. Never throws.
+   */
+  async loadBilling(accountId, currency) {
+    const { graphFetch } = this.dependencies.graphClient;
+    for (const fields of BILLING_FIELDS) {
+      try {
+        let row = await graphFetch(`act_${accountId}`, { query: { fields } });
+        if (Array.isArray(row)) row = row[0] || {};
+        return billingInfo(row, currency);
+      } catch {
+        // Fewer fields next.
+      }
+    }
+    return null;
+  }
+
+  /**
+   * The status and debt of an account read afresh: after its payment page
+   * was opened, this tells whether the payment went through.
+   */
+  async recheckBilling(accountId) {
+    const { graphFetch } = this.dependencies.graphClient;
+    let row = await graphFetch(`act_${accountId}`, {
+      query: { fields: "account_status,disable_reason,currency,balance" },
+    });
+    if (Array.isArray(row)) row = row[0] || {};
+    // The next report reads the account afresh too.
+    this.accountMeta.delete(accountId);
+    return {
+      statusCode: Number(row?.account_status) || null,
+      disableReason: Number(row?.disable_reason) || 0,
+      health: classifyAccountStatus(row?.account_status),
+      ...billingInfo(row, String(row?.currency || "").toUpperCase()),
+    };
+  }
+
+  /**
    * The automated rules of an account, or null when they cannot be read.
    * Never throws: a report without rules is still a report.
    */
@@ -131,6 +172,11 @@ export class ReportService {
         : null;
     try {
       const meta = await this.loadAccountMeta(accountId);
+      // Only an account held for an unpaid balance is asked what it owes.
+      const billing =
+        meta.statusCode === 3
+          ? await this.loadBilling(accountId, meta.currency)
+          : null;
       const window = resolveWindow({
         period,
         custom,
@@ -189,6 +235,12 @@ export class ReportService {
         statusCode: meta.statusCode,
         disableReason: meta.disableReason,
         createdTime: meta.createdTime,
+        amountDue: billing?.amountDue ?? null,
+        amountDueUsd:
+          billing?.amountDue === null || billing?.amountDue === undefined
+            ? null
+            : toUsd(billing.amountDue, meta.currency, meta.ratio),
+        card: billing?.card || "",
         rules: describe(await rulesRead, meta.currency),
         error: "",
       };

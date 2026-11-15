@@ -19,7 +19,9 @@ import { t } from "./i18n.mjs";
 import { ICONS } from "./icons.mjs";
 import { ReportCampaigns } from "./report-campaigns.mjs";
 import { ReportGroups } from "./report-groups-view.mjs";
+import { ReportPayments } from "./report-payments.mjs";
 import { rulesChip, withoutRules } from "./report-rules.mjs";
+import { payable, settling } from "../domain/billing.mjs";
 
 const PERIODS = ["today", "yesterday", "last7", "custom"];
 const STATUSES = ["all", "live", "dead"];
@@ -67,6 +69,17 @@ export class ReportsView {
         return view.dependencies.logging;
       },
       render: () => this.render(),
+    });
+    this.payments = new ReportPayments({
+      state: dependencies.state,
+      get reportService() {
+        return view.dependencies.reportService;
+      },
+      get logging() {
+        return view.dependencies.logging;
+      },
+      render: () => this.render(),
+      selectedRows: () => this.selectedRows(),
     });
   }
 
@@ -176,6 +189,12 @@ export class ReportsView {
     this.boundRoot = root;
     root.addEventListener("click", (event) => {
       const { state } = this.dependencies;
+      // A payment link opens Meta's page in a tab by itself: only noted here.
+      const pay = event.target.closest?.("[data-report-pay]");
+      if (pay && this.panel?.contains(pay)) {
+        this.payments.handleLink(pay.dataset.reportPay);
+        return;
+      }
       const target = event.target.closest?.("[data-report]");
       if (!target || !this.panel?.contains(target)) return;
       // A group key may hold colons itself: only the first one separates.
@@ -196,6 +215,7 @@ export class ReportsView {
       }
       if (this.campaigns.handle(kind, value)) return;
       if (this.groups.handle(kind, value)) return;
+      if (this.payments.handle(kind, value)) return;
       if (kind === "period" && PERIODS.includes(value)) {
         state.reportPeriod = value;
         // A custom period waits for its dates and the Show button.
@@ -391,6 +411,7 @@ export class ReportsView {
     let body = "";
     if (!action) {
       body = `<span class="ma-rep-acttext">${escapeHtml(t("reports.act.selected", { count: rows.length }))}</span>
+        ${this.payments.selectedLink()}
         ${button("pause", t("reports.act.pause"), "ma-danger")}
         ${button("budget", t("reports.act.budget"))}
         ${button("clear", t("reports.act.clear"), "ma-rep-link")}`;
@@ -601,7 +622,8 @@ export class ReportsView {
                 t("reports.camp.idle", { count: idleActive }),
               )}</i>`
             : "";
-    const campaigns = `<div class="ma-rep-camps">${health}${counts}${campaignNote}${rulesChip(row)}</div>`;
+    const pay = this.payments.rowParts(row);
+    const campaigns = `<div class="ma-rep-camps">${health}${pay.chip}${counts}${campaignNote}${rulesChip(row)}</div>`;
     const spendUsd =
       row.spendUsd === null && row.spend > 0 ? null : row.spendUsd;
     return `
@@ -614,7 +636,7 @@ export class ReportsView {
         <div class="ma-rep-acct">
           <b title="${escapeHtml(row.name)}">${escapeHtml(row.name)}</b>
           <span>${escapeHtml(row.accountId)}${zone ? ` · ${escapeHtml(zone)}` : ""}</span>
-          ${campaigns}${note}
+          ${pay.note}${campaigns}${note}
         </div>
         <div class="ma-rep-num"><b>${row.error ? "—" : money(spendUsd)}</b>${original}</div>
         <div class="ma-rep-num"><b>${count(row.leads)}</b><small>${cost(row.spendUsd, row.leads)}</small></div>
@@ -777,7 +799,12 @@ export class ReportsView {
             (row) =>
               row.spend > 0 ||
               row.error ||
-              (accountDelivers(row.health) && row.activeCampaigns > 0),
+              (accountDelivers(row.health) && row.activeCampaigns > 0) ||
+              // A debt to pay, a payment under way, or just paid: never
+              // tucked away.
+              payable(row) ||
+              settling(row) ||
+              row.paid,
           );
     const noRules = state.reportNoRules ? withoutRules(rows) : null;
     const idle = noRules ? 0 : rows.length - spent.length;
@@ -813,6 +840,7 @@ export class ReportsView {
     }
     panel.innerHTML = `${views}${controls}${tiles}
       ${statusFilter}
+      ${this.payments.markup()}
       ${this.actionBar()}
       <div class="ma-rep-head">
         <input type="checkbox" class="ma-rep-pick" data-always-enabled data-report-pick-all ${

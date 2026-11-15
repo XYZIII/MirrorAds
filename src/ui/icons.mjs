@@ -26,6 +26,9 @@ export const ICONS = {
   minimize: icon('<path d="M6 18h12"/>'),
   close: icon('<path d="m6.5 6.5 11 11"/><path d="m17.5 6.5-11 11"/>'),
   chevron: icon('<path d="m7 10 5 5 5-5"/>'),
+  card: icon(
+    '<rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="M3 10h18"/><path d="M7 15h3"/>',
+  ),
   accounts: icon(
     '<rect x="4" y="5" width="16" height="4" rx="1.5"/><rect x="4" y="11" width="16" height="4" rx="1.5"/><path d="M4 18.5h10"/>',
   ),

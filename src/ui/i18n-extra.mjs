@@ -197,6 +197,36 @@ export const EXTRA = {
     "reports.camp.none.active": "No live account has active campaigns.",
     "reports.camp.none.inactive": "No live account has inactive campaigns.",
     "reports.camp.none.spend": "No campaign spent in this period.",
+    "reports.pay.button": "Pay",
+    "reports.pay.again": "Open again",
+    "reports.pay.hintLink":
+      "Opens Meta's payment page of this account: press “Pay now” there",
+    "reports.pay.due": "due {amount}",
+    "reports.pay.waiting": "waiting for the payment",
+    "reports.pay.paid": "paid ✓",
+    "reports.pay.settling": "payment processing",
+    "reports.pay.settlingHint":
+      "Meta is processing a payment for this account: wait, do not pay again.",
+    "reports.pay.banner": "Unpaid balance: {count} accounts",
+    "reports.pay.bannerHint":
+      "Payment happens on Meta's own page: the script opens them one by one and, when you come back, checks which went through.",
+    "reports.pay.all": "Pay all ({count})",
+    "reports.pay.selected": "Pay selected ({count})",
+    "reports.pay.queue":
+      "Paying debts: {opened} of {total} opened · {paid} paid",
+    "reports.pay.next": "Next: {name}",
+    "reports.pay.check": "Check payments",
+    "reports.pay.checking": "Checking…",
+    "reports.pay.end": "Finish",
+    "reports.pay.close": "Close",
+    "reports.pay.hint":
+      "On Meta's page press “Pay now”, then open the next one. Coming back here re-checks the payments; Meta may take a few minutes.",
+    "reports.pay.allOpened":
+      "All payment pages are open. Pay on each, then come back here or press “Check payments”.",
+    "reports.pay.allPaid": "All debts are paid ✓",
+    "reports.pay.stage.paid": "paid",
+    "reports.pay.stage.opened": "opened",
+    "reports.pay.stage.waiting": "next",
   },
   ru: {
     "overrides.set": "Сет «{name}»",
@@ -394,5 +424,35 @@ export const EXTRA = {
     "reports.camp.none.inactive":
       "Ни в одном живом кабинете нет неактивных кампаний.",
     "reports.camp.none.spend": "За этот период ни одна кампания не потратила.",
+    "reports.pay.button": "Оплатить",
+    "reports.pay.again": "Открыть снова",
+    "reports.pay.hintLink":
+      "Откроет страницу оплаты Meta для этого кабинета — там нажми «Оплатить сейчас»",
+    "reports.pay.due": "долг {amount}",
+    "reports.pay.waiting": "ждём оплату",
+    "reports.pay.paid": "оплачено ✓",
+    "reports.pay.settling": "оплата обрабатывается",
+    "reports.pay.settlingHint":
+      "Meta обрабатывает платёж по этому кабинету — подожди, повторно не плати.",
+    "reports.pay.banner": "Долг по оплате: {count} каб.",
+    "reports.pay.bannerHint":
+      "Оплата проходит на странице Meta: скрипт откроет их по очереди и, когда вернёшься, проверит, какие оплачены.",
+    "reports.pay.all": "Оплатить все ({count})",
+    "reports.pay.selected": "Оплатить выбранные ({count})",
+    "reports.pay.queue":
+      "Оплата долгов: открыто {opened} из {total} · оплачено {paid}",
+    "reports.pay.next": "Следующий: {name}",
+    "reports.pay.check": "Проверить оплату",
+    "reports.pay.checking": "Проверяю…",
+    "reports.pay.end": "Закончить",
+    "reports.pay.close": "Закрыть",
+    "reports.pay.hint":
+      "На странице Meta нажми «Оплатить сейчас», потом открой следующий. Когда вернёшься сюда, скрипт проверит оплату — Meta может обновлять статус несколько минут.",
+    "reports.pay.allOpened":
+      "Все страницы оплаты открыты. Оплати на каждой и вернись сюда или нажми «Проверить оплату».",
+    "reports.pay.allPaid": "Все долги оплачены ✓",
+    "reports.pay.stage.paid": "оплачен",
+    "reports.pay.stage.opened": "открыт",
+    "reports.pay.stage.waiting": "в очереди",
   },
 };

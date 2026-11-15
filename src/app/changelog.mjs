@@ -5,6 +5,16 @@
  */
 export const CHANGELOG = [
   {
+    version: "161126b1",
+    date: "2026-11-16",
+    ru: [
+      "Отчёты: у кабинетов с долгом по оплате видна сумма долга и карта, рядом кнопка «Оплатить». Сверху — «Оплатить все», а для отмеченных галочкой — «Оплатить выбранные». Сама оплата проходит на странице Meta (оплатить через API Meta не даёт): скрипт открывает страницы оплаты по очереди, а когда возвращаешься в Ads Manager, сам проверяет, какие кабинеты оплачены, — они снова становятся живыми.",
+    ],
+    en: [
+      "Reports: accounts with an unpaid balance show the amount due and the card, with a Pay button next to them; above the list, Pay all, and Pay selected for the ticked ones. The payment itself happens on Meta's page (Meta has no API to pay): the script opens the payment pages one by one and, when you come back to Ads Manager, checks which accounts got paid; those turn live again.",
+    ],
+  },
+  {
     version: "151126b13",
     date: "2026-11-15",
     ru: [

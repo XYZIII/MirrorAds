@@ -555,6 +555,67 @@ export function buildReportStyles(A) {
       ${A} .ma-rules-item small + small { color: #9ca3af; }
       ${A} .ma-rules-empty { font-size: 12px; color: #e5e7eb; }
 
+
+      /* ---- reports: unpaid balances ---- */
+      ${A} .ma-rep-paybar {
+        margin: 0 0 12px;
+        padding: 10px 12px;
+        border: 1px solid #f3d27c;
+        border-radius: 14px;
+        background: #fffaeb;
+      }
+      ${A} .ma-rep-paybar.is-done { border-color: #bfe89a; background: #f2fbe8; }
+      ${A} .ma-rep-payhead {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px 12px;
+      }
+      ${A} .ma-rep-payhead > b { font-size: 13px; color: #7a5200; }
+      ${A} .ma-rep-paybar.is-done .ma-rep-payhead > b { color: #2f6b0a; }
+      ${A} .ma-rep-payacts { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+      ${A} .ma-rep-paybar > small { display: block; margin-top: 6px; font-size: 11px; line-height: 1.45; color: #8a6d1f; }
+      ${A} a.ma-rep-pay {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 1px 9px 1px 7px;
+        border-radius: 999px;
+        background: #111827;
+        color: var(--ma-lime);
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 1.5;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+      ${A} a.ma-rep-pay .ma-ico { width: 13px; height: 13px; }
+      ${A} a.ma-rep-pay:hover { background: #000000; color: #d9ff7a; }
+      ${A} a.ma-rep-pay.is-bar { height: 34px; padding: 0 14px 0 12px; border-radius: 10px; font-size: 12px; }
+      ${A} a.ma-rep-pay.is-bar .ma-ico { width: 15px; height: 15px; }
+      ${A} .ma-rep-debt { margin-top: 2px; font-size: 11px; font-weight: 600; color: #8a5a00; }
+      ${A} .ma-rep-debt em { font-style: normal; font-weight: 500; color: #b45309; }
+      ${A} .ma-rep-camps i.ma-rep-paid { background: #dcf7c0; color: #1f6a10; }
+      ${A} .ma-rep-camps i.ma-rep-settling { background: #e0f2fe; color: #075985; }
+      ${A} .ma-rep-paychips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+      ${A} .ma-rep-paychip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 2px 9px;
+        border: 1px solid #f0d58c;
+        border-radius: 999px;
+        background: #ffffff;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--ma-ink);
+      }
+      ${A} .ma-rep-paychip em { font-style: normal; font-weight: 500; color: var(--ma-faint); }
+      ${A} .ma-rep-paychip.is-opened em { color: #b45309; }
+      ${A} .ma-rep-paychip.is-paid { border-color: #bfe89a; }
+      ${A} .ma-rep-paychip.is-paid em { color: #2f6b0a; }
+
       /* ---- reports: groups ---- */
       ${A} .ma-grp-by { display: flex; flex-direction: column; gap: 8px; margin: 2px 0 6px; }
       ${A} .ma-grp-by > span {
