@@ -185,6 +185,47 @@ export function buildDialogStyles(A) {
       ${A} .ma-news-ver span { font-size: 11px; color: var(--ma-faint); }
       ${A} .ma-news ul { margin: 0; padding-left: 18px; }
       ${A} .ma-news li { margin: 5px 0; font-size: 13px; line-height: 1.5; color: #374151; }
+      /* ---- clone: campaigns per account, filter, pasted ids ---- */
+      ${A} .ma-picks { display: inline-flex; gap: 6px; flex: 0 0 auto; }
+      ${A} .ma-filter-chip {
+        min-height: 30px;
+        padding: 0 12px;
+        border: 1px solid var(--ma-line);
+        border-radius: 999px;
+        background: #ffffff;
+        color: var(--ma-ink);
+        font-size: 12px;
+        font-weight: 600;
+        white-space: nowrap;
+        cursor: pointer;
+      }
+      ${A} .ma-filter-chip:hover { background: var(--ma-soft); }
+      ${A} .ma-filter-chip[aria-pressed="true"], ${A} .ma-filter-chip[aria-expanded="true"] {
+        border-color: transparent;
+        background: var(--ma-lime);
+        color: #14280a;
+      }
+      ${A} .ma-paste { margin: 0 0 12px; padding: 12px; border: 1px solid var(--ma-line); border-radius: 14px; background: var(--ma-soft); }
+      ${A} .ma-paste textarea {
+        display: block;
+        box-sizing: border-box;
+        width: 100%;
+        min-height: 96px;
+        padding: 10px 12px;
+        border: 1px solid var(--ma-line);
+        border-radius: 10px;
+        background: #ffffff;
+        color: var(--ma-ink);
+        font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+        resize: vertical;
+      }
+      ${A} .ma-paste-bar { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+      ${A} .ma-paste-bar .ma-hint { flex: 1 1 auto; }
+      ${A} .ma-paste-result { margin-top: 8px; font-size: 12px; line-height: 1.5; color: var(--ma-ink); white-space: pre-line; word-break: break-word; }
+      ${A} .ma-chip.ma-camps { margin-left: 6px; }
+      ${A} .ma-chip.ma-camps-none { background: #e3f6cf; color: #1f6a10; }
+      ${A} .ma-chip.ma-camps-some { background: #fff1d0; color: #92590a; }
+      ${A} .ma-chip.ma-camps-wait { color: var(--ma-faint); }
       /* ---- licence ---- */
       ${A} .ma-menu .ma-license { margin: 4px 0; padding: 9px 10px; border-radius: 10px; background: var(--ma-soft); font-size: 12px; }
       ${A} .ma-license-line { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }

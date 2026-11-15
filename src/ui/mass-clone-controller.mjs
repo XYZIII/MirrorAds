@@ -1,4 +1,5 @@
 import { getSourceCatalogsFromPackage } from "../domain/package.mjs";
+import { AccountPicks } from "./account-picks.mjs";
 
 const TARGET_CONCURRENCY = 4;
 
@@ -12,6 +13,24 @@ export class MassCloneController {
     this.retryFailed = this.retryFailed.bind(this);
     this.stopMassClone = this.stopMassClone.bind(this);
     this.resetRun = this.resetRun.bind(this);
+    this.picks = new AccountPicks(dependencies);
+  }
+
+  /** The accounts selected for the next run (their campaigns change with it). */
+  selectedAccountIds() {
+    return Object.entries(this.dependencies.state.massTargets || {})
+      .filter(([, picked]) => picked?.selected)
+      .map(([accountId]) => accountId);
+  }
+
+  /** Runs the workflow, then re-checks which accounts now have campaigns. */
+  async runAndRecheck(run) {
+    const touched = this.selectedAccountIds();
+    try {
+      return await run();
+    } finally {
+      if (touched.length) void this.picks.loadPresence(touched);
+    }
   }
 
   /**
@@ -52,6 +71,8 @@ export class MassCloneController {
     state.massPages ||= {};
     state.massCatalogs ||= {};
     state.massCatalogBusiness ||= {};
+    // Which accounts already have campaigns: checked alongside, not waited for.
+    void this.picks.loadPresence();
     const queue = [...this.dependencies.massCloneView.targetAccounts()];
     // Accounts are independent, so a few are prepared at once: with many
     // accounts this is most of the time the Clone tab takes to become ready.
@@ -173,7 +194,7 @@ export class MassCloneController {
     for (const picked of Object.values(state.massTargets || {})) {
       delete picked.copyIndexes;
     }
-    return this.dependencies.massCloneWorkflow.run();
+    return this.runAndRecheck(() => this.dependencies.massCloneWorkflow.run());
   }
 
   /** Re-runs exactly the accounts that failed in the previous run. */
@@ -219,7 +240,7 @@ export class MassCloneController {
       `Retrying ${failed.length} failed account${failed.length === 1 ? "" : "s"}.`,
     );
     this.dependencies.massCloneView.render();
-    return this.dependencies.massCloneWorkflow.run();
+    return this.runAndRecheck(() => this.dependencies.massCloneWorkflow.run());
   }
 
   stopMassClone() {
@@ -282,6 +303,7 @@ export class MassCloneController {
     if (!root) return;
     if (this.boundRoot === root) return;
     this.boundRoot = root;
+    this.picks.attach(root);
     // The "change on clone" strip lives in the footer, outside the list.
     root.addEventListener("input", (event) => {
       const key = event.target?.dataset?.override;

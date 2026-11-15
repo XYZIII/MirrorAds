@@ -1,4 +1,5 @@
 import { assessAccountHealth } from "../accounts/account-health.mjs";
+import { campaignChip } from "./account-picks.mjs";
 import { cloneToLabel, getLang, smallLabel, statLabel, t } from "./i18n.mjs";
 import { escapeHtml } from "../utils/string.mjs";
 import { hasCloneOverrides, parseAmount } from "../domain/clone-overrides.mjs";
@@ -100,15 +101,38 @@ export class MassCloneView {
     return Boolean(raw.funding_source_details?.id || raw.funding_source);
   }
 
+  /** Accounts that can host a clone: settled and with a payment method. */
+  usableAccounts() {
+    const { state } = this.dependencies;
+    return (state.accounts || []).filter(
+      (account) =>
+        assessAccountHealth(state.accounts, account.id).ok &&
+        this.hasPaymentMethod(account),
+    );
+  }
+
+  /** Accounts that already have campaigns while the "without campaigns" filter hides them. */
+  hiddenWithCampaigns() {
+    const { state } = this.dependencies;
+    if (!state.massOnlyEmpty) return 0;
+    return this.usableAccounts().filter(
+      (account) => state.massCampaigns?.[String(account.id)]?.total > 0,
+    ).length;
+  }
+
   /** Only usable accounts are listed: unsettled or unpaid cabinets cannot host ads. */
   targetAccounts() {
     const { state } = this.dependencies;
     const query = String(state.massSearch || "")
       .trim()
       .toLowerCase();
-    return (state.accounts || []).filter((account) => {
-      if (!assessAccountHealth(state.accounts, account.id).ok) return false;
-      if (!this.hasPaymentMethod(account)) return false;
+    return this.usableAccounts().filter((account) => {
+      if (
+        state.massOnlyEmpty &&
+        state.massCampaigns?.[String(account.id)]?.total > 0
+      ) {
+        return false;
+      }
       if (!query) return true;
       return (
         String(account.name || "")
@@ -437,7 +461,7 @@ export class MassCloneView {
             isSource
               ? `<span class="ma-chip">${escapeHtml(t("chip.source"))}</span>`
               : ""
-          }</span></td>
+          }${campaignChip(state.massCampaigns?.[accountId])}</span></td>
           <td class="ma-newname${picked.campaignName ? " ma-custom" : ""}" data-label="${escapeHtml(t("field.newName"))}"><input type="text" class="ma-name-input" data-mass-name="${escapeHtml(accountId)}" value="${escapeHtml(
             picked.campaignName || this.previewName(account),
           )}" placeholder="${escapeHtml(this.previewName(account) || t("field.newName"))}" title="${escapeHtml(t("field.newNameHint"))}" spellcheck="false" />${
@@ -679,10 +703,13 @@ export class MassCloneView {
     );
     if (dom.cloneTargetsNote) {
       const hidden = this.hiddenNoPayment();
-      dom.cloneTargetsNote.textContent = hidden
-        ? t("targets.noPayment", { n: hidden })
-        : "";
-      dom.cloneTargetsNote.classList.toggle("ma-hidden", !hidden);
+      const withCampaigns = this.hiddenWithCampaigns();
+      const notes = [
+        hidden ? t("targets.noPayment", { n: hidden }) : "",
+        withCampaigns ? t("targets.withCampaigns", { n: withCampaigns }) : "",
+      ].filter(Boolean);
+      dom.cloneTargetsNote.textContent = notes.join(" ");
+      dom.cloneTargetsNote.classList.toggle("ma-hidden", !notes.length);
     }
     if (dom.cloneMaster) {
       dom.cloneMaster.checked = total > 0 && count === total;

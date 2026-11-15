@@ -5,6 +5,18 @@
  */
 export const CHANGELOG = [
   {
+    version: "151126b5",
+    date: "2026-11-15",
+    ru: [
+      "Клонирование: у каждого кабинета видно, есть ли в нём уже кампании. Кнопка «Без кампаний» оставляет в списке только пустые кабинеты, и в скрытые ничего не клонируется.",
+      "Кнопка «Вставить ID»: вставьте список ID от агента — эти кабинеты выберутся сами. Покажет, каких нет в профиле, какие отключены или без карты и где уже есть кампании.",
+    ],
+    en: [
+      "Clone: every account shows whether it already has campaigns. The “Without campaigns” button keeps only empty accounts in the list, and nothing is cloned into hidden ones.",
+      "“Paste IDs”: paste an agent's list of account IDs and those accounts are selected. It tells you which are missing from the profile, disabled or without a card, or already have campaigns.",
+    ],
+  },
+  {
     version: "151126b3",
     date: "2026-11-15",
     ru: [
