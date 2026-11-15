@@ -37,6 +37,15 @@ const STOP = {
   schedule_spec: { schedule_type: "SEMI_HOURLY" },
 };
 const RULES = { 111: [STOP], 222: [{ ...STOP, status: "DISABLED" }], 333: [] };
+const CAMPAIGNS = {
+  111: [
+    { id: "c11", effective_status: "ACTIVE" },
+    { id: "c12", effective_status: "ACTIVE" },
+    { id: "c13", effective_status: "PAUSED" },
+  ],
+  222: [{ id: "c21", effective_status: "ACTIVE" }],
+  333: [{ id: "c31", effective_status: "PAUSED" }],
+};
 
 function fakeGraph() {
   const calls = [];
@@ -52,7 +61,7 @@ function fakeGraph() {
         timezone_offset_hours_utc: meta.offset,
         account_status: 1,
         created_time: "2026-11-01T00:00:00+0000",
-        campaigns: { data: [{ effective_status: "ACTIVE" }] },
+        campaigns: { data: CAMPAIGNS[id(path)] },
       };
     },
     graphGetAll: async (path, query = {}) => {
@@ -79,7 +88,13 @@ function fakeGraph() {
       }
       const meta = META[account];
       return meta.spend
-        ? [{ spend: String(meta.spend), actions: [lead(meta.leads)] }]
+        ? [
+            {
+              campaign_id: CAMPAIGNS[account][0].id,
+              spend: String(meta.spend),
+              actions: [lead(meta.leads)],
+            },
+          ]
         : [];
     },
   };
@@ -164,6 +179,48 @@ test("Reports shows each account's rules and groups accounts by creative or time
     );
     click('[data-report="norules"]');
 
+    // Campaigns: all of them by default, then those on, off or spending.
+    const counts = () =>
+      Object.fromEntries(
+        [...panel().querySelectorAll('[data-report^="camp:"]')].map(
+          (button) => [
+            button.dataset.report.slice(5),
+            button.querySelector("em").textContent,
+          ],
+        ),
+      );
+    assert.deepEqual(counts(), {
+      all: "5",
+      active: "3",
+      inactive: "2",
+      spend: "2",
+    });
+    assert.ok(
+      panel()
+        .querySelector('[data-report="camp:all"]')
+        .classList.contains("is-on"),
+    );
+    const names = () =>
+      [...panel().querySelectorAll(".ma-rep-row .ma-rep-acct > b")].map(
+        (name) => name.textContent,
+      );
+    const notes = (selector) =>
+      [...panel().querySelectorAll(`.ma-rep-row ${selector}`)].map(
+        (chip) => chip.textContent,
+      );
+    click('[data-report="camp:spend"]');
+    assert.deepEqual(names(), ["East", "West"]);
+    assert.deepEqual(notes(".ma-rep-spending"), [
+      "with spend: 1",
+      "with spend: 1",
+    ]);
+    click('[data-report="camp:active"]');
+    assert.deepEqual(names(), ["East", "West"]);
+    assert.deepEqual(notes(".ma-rep-idle"), ["no spend: 1"]);
+    click('[data-report="camp:inactive"]');
+    assert.deepEqual(names(), ["East", "Idle"]);
+    click('[data-report="camp:all"]');
+
     // Groups by creative read the ads once, then add them up.
     click('[data-report="view:groups"]');
     click('[data-report="groupby:creative"]');
@@ -202,13 +259,13 @@ test("Reports shows each account's rules and groups accounts by creative or time
     assert.equal(panel().querySelectorAll(".ma-grp-member").length, 0);
 
     // Traits of the accounts need no more reading; ads are not read again.
-    // Every account here has a campaign switched on: all of them run.
+    // Idle has only a paused campaign: it does not run.
     click('[data-report="groupby:zone"]');
     assert.deepEqual(
       groups().map(([label, running, of]) => [label, running, of]),
       [
         ["UTC+3", "1", "of 1"],
-        ["UTC+7", "2", "of 2"],
+        ["UTC+7", "1", "of 2"],
       ],
     );
     click('[data-report="groupby:creative"]');

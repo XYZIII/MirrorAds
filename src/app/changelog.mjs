@@ -5,6 +5,16 @@
  */
 export const CHANGELOG = [
   {
+    version: "151126b13",
+    date: "2026-11-15",
+    ru: [
+      "Отчёты: строка «Кампании» — Все / Активные / Неактивные / С расходом, с количеством кампаний по всем кабинетам. По умолчанию видно общее число, активные и неактивные. Кампании забаненных и других нерабочих кабинетов не считаются. Фильтр оставляет кабинеты с такими кампаниями; «С расходом» — потратили за выбранный период. В режиме «Активные» у кабинета видно, сколько включённых кампаний ничего не потратили.",
+    ],
+    en: [
+      "Reports: a Campaigns row — All / Active / Inactive / With spend, with the number of campaigns across all accounts; by default the total, active and inactive ones. Campaigns of banned and other non-working accounts are not counted. The filter keeps the accounts with such campaigns; With spend means spent in the chosen period. In Active, each account shows how many switched-on campaigns spent nothing.",
+    ],
+  },
+  {
     version: "151126b12",
     date: "2026-11-15",
     ru: [

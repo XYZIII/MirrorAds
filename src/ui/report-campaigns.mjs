@@ -118,6 +118,11 @@ export class ReportCampaigns {
             0,
             (row.inactiveCampaigns || 0) - step,
           );
+          if (Array.isArray(row.activeCampaignIds)) {
+            row.activeCampaignIds = on
+              ? [...new Set([...row.activeCampaignIds, String(item.id)])]
+              : row.activeCampaignIds.filter((id) => id !== String(item.id));
+          }
         }
         if (state.report?.total) {
           state.report.total.activeCampaigns = Math.max(

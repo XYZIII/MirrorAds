@@ -13,9 +13,12 @@ import {
   summarizeInsights,
   toUsd,
   countCampaigns,
+  filterByCampaigns,
+  idleActiveCount,
   periodBounds,
   reportZoneChoices,
   resolveWindow,
+  spendingCampaignIds,
   totalReport,
   validateCustomPeriod,
   zoneOffsetMinutes,
@@ -770,4 +773,119 @@ test("ads for the groups are read on the same clock as their account lines", asy
     until: "2026-11-14",
   });
   assert.equal(adInsights.hourly, false);
+});
+
+test("campaign counts leave out accounts that cannot deliver", () => {
+  const rows = [
+    {
+      health: "live",
+      activeCampaigns: 2,
+      inactiveCampaigns: 3,
+      activeCampaignIds: ["c1", "c2"],
+      spendingCampaignIds: ["c1", "c9"],
+      spend: 10,
+      spendUsd: 10,
+      leads: null,
+      purchases: null,
+    },
+    {
+      health: "unknown",
+      activeCampaigns: 1,
+      inactiveCampaigns: 0,
+      activeCampaignIds: ["d1"],
+      spendingCampaignIds: [],
+      spend: 0,
+      spendUsd: 0,
+      leads: null,
+      purchases: null,
+    },
+    {
+      health: "banned",
+      activeCampaigns: 4,
+      inactiveCampaigns: 1,
+      activeCampaignIds: ["e1", "e2", "e3", "e4"],
+      spendingCampaignIds: ["e1"],
+      spend: 5,
+      spendUsd: 5,
+      leads: null,
+      purchases: null,
+    },
+    { health: "billing", activeCampaigns: 1, inactiveCampaigns: 1 },
+  ];
+  const total = totalReport(rows);
+  assert.deepEqual(
+    [
+      total.campaigns,
+      total.activeCampaigns,
+      total.inactiveCampaigns,
+      total.spendingCampaigns,
+    ],
+    [6, 3, 3, 2],
+  );
+  const kept = (filter) =>
+    filterByCampaigns(rows, filter).map((row) => row.health);
+  assert.deepEqual(kept("all"), ["live", "unknown", "banned", "billing"]);
+  assert.deepEqual(kept("active"), ["live", "unknown"]);
+  assert.deepEqual(kept("inactive"), ["live"]);
+  assert.deepEqual(kept("spend"), ["live"]);
+  // c2 is on and spent nothing; c9 spent and is no longer on.
+  assert.equal(idleActiveCount(rows[0]), 1);
+  assert.equal(idleActiveCount(rows[1]), 1);
+  assert.equal(idleActiveCount({ activeCampaignIds: null }), 0);
+  assert.deepEqual(
+    spendingCampaignIds([
+      { campaign_id: "1", spend: "2.5" },
+      { campaign_id: "1", spend: "1" },
+      { campaign_id: "2", spend: "0" },
+      { spend: "4" },
+    ]),
+    ["1"],
+  );
+});
+
+test("insights are read per campaign: the line adds them up and knows which spent", async () => {
+  const { service, calls } = createService({
+    meta: META,
+    hourlyRows: {},
+    dailyRows: {
+      111: [
+        {
+          campaign_id: "c1",
+          spend: "20",
+          actions: [{ action_type: "lead", value: "3" }],
+        },
+        {
+          campaign_id: "c2",
+          spend: "5",
+          actions: [{ action_type: "lead", value: "1" }],
+        },
+        { campaign_id: "c3", spend: "0", actions: [] },
+      ],
+    },
+    campaigns: {
+      111: [
+        { id: "c1", effective_status: "ACTIVE" },
+        { id: "c3", effective_status: "ACTIVE" },
+        { id: "c2", effective_status: "PAUSED" },
+      ],
+    },
+  });
+  const report = await service.loadReport({
+    accounts: [ACCOUNTS[0]],
+    period: "today",
+    zoneMode: "account",
+    viewerZone: KYIV,
+    nowMs: NOW,
+  });
+  const [row] = report.rows;
+  assert.equal(row.spend, 25);
+  assert.equal(row.leads, 4);
+  assert.deepEqual(row.spendingCampaignIds, ["c1", "c2"]);
+  assert.deepEqual(row.activeCampaignIds, ["c1", "c3"]);
+  assert.equal(idleActiveCount(row), 1);
+  assert.equal(report.total.spendingCampaigns, 2);
+  assert.equal(report.total.campaigns, 3);
+  const insights = calls.find((call) => call.path === "act_111/insights");
+  assert.equal(insights.query.level, "campaign");
+  assert.match(insights.query.fields, /campaign_id/);
 });

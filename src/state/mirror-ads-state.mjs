@@ -107,6 +107,8 @@ export class MirrorAdsState {
     this.reportGroupOpen = {};
     // Only the accounts without a rule switched on.
     this.reportNoRules = false;
+    // "all", "active", "inactive" or "spend": campaigns of live accounts.
+    this.reportCampFilter = "all";
     this.rulesSource = "";
     this.rulesList = null;
     this.rulesLoading = false;

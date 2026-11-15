@@ -3,10 +3,13 @@ import {
   addDays,
   clockInZone,
   dateInZone,
+  filterByCampaigns,
   filterReportRows,
   formatUtcOffset,
+  idleActiveCount,
   isKnownTimeZone,
   reportZoneChoices,
+  spendingCount,
   totalReport,
   validateCustomPeriod,
   zoneOffsetMinutes,
@@ -20,6 +23,7 @@ import { rulesChip, withoutRules } from "./report-rules.mjs";
 
 const PERIODS = ["today", "yesterday", "last7", "custom"];
 const STATUSES = ["all", "live", "dead"];
+const CAMPAIGN_FILTERS = ["all", "active", "inactive", "spend"];
 const ZONE_KEY = "mirrorads.report.zone";
 const ZONES = ["account", "viewer"];
 const VIEW_KEY = "mirrorads.report.view";
@@ -212,6 +216,9 @@ export class ReportsView {
         this.load();
       } else if (kind === "status" && STATUSES.includes(value)) {
         state.reportStatusFilter = value;
+        this.render();
+      } else if (kind === "camp" && CAMPAIGN_FILTERS.includes(value)) {
+        state.reportCampFilter = value;
         this.render();
       } else if (kind === "empty") {
         state.reportShowEmpty = !state.reportShowEmpty;
@@ -577,7 +584,24 @@ export class ReportsView {
                 t("reports.stuck", { count: row.activeCampaigns }),
               )}</i>`
             : "";
-    const campaigns = `<div class="ma-rep-camps">${health}${counts}${rulesChip(row)}</div>`;
+    // The campaign filter adds what it is about: how many spent, or how many
+    // are switched on and spent nothing.
+    const mode = this.dependencies.state.reportCampFilter;
+    const spending = spendingCount(row);
+    const idleActive = idleActiveCount(row);
+    const campaignNote =
+      !delivers || row.error
+        ? ""
+        : mode === "spend" && spending
+          ? `<i class="ma-rep-spending" title="${escapeHtml(t("reports.camp.spendingHint"))}">${escapeHtml(
+              t("reports.camp.spending", { count: spending }),
+            )}</i>`
+          : mode === "active" && idleActive
+            ? `<i class="ma-rep-idle" title="${escapeHtml(t("reports.camp.idleHint"))}">${escapeHtml(
+                t("reports.camp.idle", { count: idleActive }),
+              )}</i>`
+            : "";
+    const campaigns = `<div class="ma-rep-camps">${health}${counts}${campaignNote}${rulesChip(row)}</div>`;
     const spendUsd =
       row.spendUsd === null && row.spend > 0 ? null : row.spendUsd;
     return `
@@ -679,7 +703,13 @@ export class ReportsView {
         `<button type="button" role="tab" aria-selected="${item === view}" class="${item === view ? "is-on" : ""}" data-always-enabled data-report="view:${item}">${ICONS[item]}<span>${escapeHtml(t(`reports.view.${item}`))}</span></button>`,
     ).join("")}</div>`;
     const filter = state.reportStatusFilter;
-    const rows = report ? filterReportRows(report.rows, filter) : [];
+    const campFilter = CAMPAIGN_FILTERS.includes(state.reportCampFilter)
+      ? state.reportCampFilter
+      : "all";
+    const statusRows = report ? filterReportRows(report.rows, filter) : [];
+    // Campaign counts are over the accounts the status filter shows.
+    const campTotal = totalReport(statusRows);
+    const rows = filterByCampaigns(statusRows, campFilter);
     const bare = report && view === "accounts" ? withoutRules(rows).length : 0;
     // Accounts without a rule switched on: the safety check of the list.
     const rulesToggle =
@@ -704,6 +734,23 @@ export class ReportsView {
             : null,
         )}
         ${rulesToggle}
+      </div>
+      <div class="ma-rep-controls ma-rep-statusbar ma-rep-campbar">
+        <span title="${escapeHtml(t("reports.camp.hint"))}">${escapeHtml(t("reports.camp.label"))}</span>
+        ${this.segment(
+          "camp",
+          CAMPAIGN_FILTERS,
+          campFilter,
+          report
+            ? {
+                all: campTotal.campaigns,
+                active: campTotal.activeCampaigns,
+                inactive: campTotal.inactiveCampaigns,
+                spend: campTotal.spendingCampaigns,
+              }
+            : null,
+        )}
+        <small class="ma-rep-camphint">${escapeHtml(t("reports.camp.liveOnly"))}</small>
       </div>`;
     if (state.reportError && !report) {
       panel.innerHTML = `${views}${controls}<div class="ma-rep-empty">${escapeHtml(state.reportError)}</div>`;
@@ -715,12 +762,16 @@ export class ReportsView {
       )}</div>`;
       return;
     }
-    // The tiles add up what the status filter shows.
-    const total = filter === "all" ? report.total : totalReport(rows);
+    // The tiles add up what the filters show.
+    const total =
+      filter === "all" && campFilter === "all"
+        ? report.total
+        : totalReport(rows);
     // An account whose campaigns are running matters even before it spends.
-    // The "not working" filter lists every such account, spending or not.
+    // The "not working" filter and the campaign filters list every account
+    // they keep, spending or not.
     const spent =
-      filter === "dead"
+      filter === "dead" || campFilter !== "all"
         ? rows
         : rows.filter(
             (row) =>
@@ -783,9 +834,11 @@ export class ReportsView {
             t(
               noRules
                 ? "reports.rules.allHave"
-                : filter === "dead"
-                  ? "reports.noDead"
-                  : "reports.noSpend",
+                : campFilter !== "all"
+                  ? `reports.camp.none.${campFilter}`
+                  : filter === "dead"
+                    ? "reports.noDead"
+                    : "reports.noSpend",
             ),
           )}</div>`
         }

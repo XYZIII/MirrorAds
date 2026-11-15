@@ -2,11 +2,13 @@ import { describeRule } from "../domain/ad-rules.mjs";
 import { normalizeAccountId } from "../domain/ids.mjs";
 import { summarizeAdRows } from "../domain/report-groups.mjs";
 import {
+  activeCampaignIds,
   classifyAccountStatus,
   countCampaigns,
   filterHourlyRows,
   isKnownTimeZone,
   resolveWindow,
+  spendingCampaignIds,
   summarizeInsights,
   toUsd,
   totalReport,
@@ -17,8 +19,9 @@ import {
 // of two per account.
 const ACCOUNT_FIELDS =
   "currency,account_currency_ratio_to_usd,timezone_name,timezone_offset_hours_utc,account_status,disable_reason,created_time";
-const CAMPAIGN_FIELDS = "campaigns.limit(500){effective_status}";
-const INSIGHT_FIELDS = "spend,impressions,clicks,actions";
+const CAMPAIGN_FIELDS = "campaigns.limit(500){id,effective_status}";
+// Read per campaign and added up: the same request tells which campaigns spent.
+const INSIGHT_FIELDS = "campaign_id,spend,impressions,clicks,actions";
 const AD_INSIGHT_FIELDS = "ad_id,ad_name,adset_id,campaign_name,spend,actions";
 // Plain node expansions only: a sub-selection inside targeting is not
 // something every account's API answers.
@@ -66,21 +69,27 @@ export class ReportService {
       disableReason: Number(row?.disable_reason) || 0,
       health: classifyAccountStatus(row?.account_status),
       // Absent when Meta refuses the campaigns edge: unknown, not zero.
-      campaigns: row?.campaigns ? countCampaigns(row.campaigns.data) : null,
+      campaigns: row?.campaigns
+        ? {
+            ...countCampaigns(row.campaigns.data),
+            activeIds: activeCampaignIds(row.campaigns.data),
+          }
+        : null,
       createdTime: String(row?.created_time || ""),
     };
     this.accountMeta.set(accountId, meta);
     return meta;
   }
 
-  async fetchInsights(accountId, range, hourly, level = "account") {
+  async fetchInsights(accountId, range, hourly, level = "campaign") {
     const { graphGetAll } = this.dependencies.graphClient;
     return graphGetAll(`act_${accountId}/insights`, {
       level,
       fields: level === "ad" ? AD_INSIGHT_FIELDS : INSIGHT_FIELDS,
       time_range: JSON.stringify(range),
-      ...(hourly ? { breakdowns: HOURLY, time_increment: 1, limit: 500 } : {}),
-      ...(level === "ad" && !hourly ? { limit: 500 } : {}),
+      ...(hourly
+        ? { breakdowns: HOURLY, time_increment: 1, limit: 500 }
+        : { limit: 500 }),
     });
   }
 
@@ -131,6 +140,7 @@ export class ReportService {
       });
       let basis = zoneMode === "viewer" ? "viewer" : "account";
       let summary = null;
+      let spending = [];
       if (!window.wholeAccountDays) {
         const hourly = await this.fetchInsights(
           accountId,
@@ -138,20 +148,24 @@ export class ReportService {
           true,
         );
         if (hourly.length) {
-          summary = summarizeInsights(
-            filterHourlyRows(
-              hourly,
-              meta.timeZone,
-              window.startMs,
-              window.endMs,
-            ),
+          const inside = filterHourlyRows(
+            hourly,
+            meta.timeZone,
+            window.startMs,
+            window.endMs,
           );
+          summary = summarizeInsights(inside);
+          spending = spendingCampaignIds(inside);
         }
       }
       if (!summary) {
-        summary = summarizeInsights(
-          await this.fetchInsights(accountId, window.accountRange, false),
+        const daily = await this.fetchInsights(
+          accountId,
+          window.accountRange,
+          false,
         );
+        summary = summarizeInsights(daily);
+        spending = spendingCampaignIds(daily);
         // No hourly rows although money was spent: Meta withholds the hourly
         // breakdown for this account, so these are whole account days.
         if (!window.wholeAccountDays && summary.spend > 0) {
@@ -169,6 +183,8 @@ export class ReportService {
         spendUsd: toUsd(summary.spend, meta.currency, meta.ratio),
         activeCampaigns: campaigns ? campaigns.active : null,
         inactiveCampaigns: campaigns ? campaigns.inactive : null,
+        activeCampaignIds: campaigns ? campaigns.activeIds : null,
+        spendingCampaignIds: spending,
         health: meta.health,
         statusCode: meta.statusCode,
         disableReason: meta.disableReason,
@@ -190,6 +206,8 @@ export class ReportService {
         offsetMinutes: null,
         activeCampaigns: campaigns ? campaigns.active : null,
         inactiveCampaigns: campaigns ? campaigns.inactive : null,
+        activeCampaignIds: campaigns ? campaigns.activeIds : null,
+        spendingCampaignIds: null,
         // The account itself could not be read: fall back to the status it
         // had when the account list was loaded.
         health: classifyAccountStatus(

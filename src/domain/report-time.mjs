@@ -259,11 +259,21 @@ export function totalReport(rows) {
     leadsKnown: false,
     purchasesKnown: false,
     activeCampaigns: 0,
+    // Campaigns of the accounts that can deliver: banned, unpaid, held or
+    // closed accounts are not counted.
+    campaigns: 0,
+    inactiveCampaigns: 0,
+    spendingCampaigns: 0,
   };
   for (const row of rows || []) {
     // Campaigns switched on in an account that cannot deliver are not running.
     if (accountDelivers(row.health)) {
-      total.activeCampaigns += Number(row.activeCampaigns) || 0;
+      const active = Number(row.activeCampaigns) || 0;
+      const inactive = Number(row.inactiveCampaigns) || 0;
+      total.activeCampaigns += active;
+      total.inactiveCampaigns += inactive;
+      total.campaigns += active + inactive;
+      total.spendingCampaigns += spendingCount(row);
     }
     if (row.error) continue;
     if (row.spendUsd === null) {
@@ -282,6 +292,59 @@ export function totalReport(rows) {
     }
   }
   return total;
+}
+
+/** How many campaigns of an account line spent in the period. */
+export function spendingCount(row) {
+  return Array.isArray(row?.spendingCampaignIds)
+    ? row.spendingCampaignIds.length
+    : 0;
+}
+
+/**
+ * Switched-on campaigns of a line that spent nothing in the period: on, but
+ * not delivering. Only for lines whose campaigns could be read.
+ */
+export function idleActiveCount(row) {
+  if (!Array.isArray(row?.activeCampaignIds)) return 0;
+  const spending = new Set(row.spendingCampaignIds || []);
+  return row.activeCampaignIds.filter((id) => !spending.has(id)).length;
+}
+
+/** The campaigns that spent something, from campaign-level insights rows. */
+export function spendingCampaignIds(rows) {
+  const ids = new Set();
+  for (const row of rows || []) {
+    if (row?.campaign_id && Number(row.spend) > 0) {
+      ids.add(String(row.campaign_id));
+    }
+  }
+  return [...ids];
+}
+
+/** The ids of the campaigns that are switched on. */
+export function activeCampaignIds(campaigns) {
+  return (campaigns || [])
+    .filter(
+      (campaign) =>
+        String(campaign?.effective_status || "").toUpperCase() === "ACTIVE" &&
+        campaign?.id,
+    )
+    .map((campaign) => String(campaign.id));
+}
+
+/**
+ * Lines for a campaign filter: "all", or the accounts that can deliver and
+ * have "active", "inactive" or "spend" (spent in the period) campaigns.
+ */
+export function filterByCampaigns(rows, filter) {
+  if (!["active", "inactive", "spend"].includes(filter)) return rows || [];
+  return (rows || []).filter((row) => {
+    if (!accountDelivers(row.health)) return false;
+    if (filter === "active") return Number(row.activeCampaigns) > 0;
+    if (filter === "inactive") return Number(row.inactiveCampaigns) > 0;
+    return spendingCount(row) > 0;
+  });
 }
 
 /** Campaigns that are switched on versus everything else that still exists. */
