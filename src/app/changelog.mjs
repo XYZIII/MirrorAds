@@ -5,6 +5,16 @@
  */
 export const CHANGELOG = [
   {
+    version: "151126b8",
+    date: "2026-11-15",
+    ru: [
+      "Клонирование: в «Изменить при клонировании» можно выбрать другой сет того же каталога — например, Gina_V5 вместо Gina_V4. Где в названиях кампании, групп и объявлений стоит имя старого сета, будет имя нового.",
+    ],
+    en: [
+      "Clone: “Change on clone” can switch the campaign to another set of the same catalog — e.g. Gina_V5 instead of Gina_V4. Where campaign, ad set and ad names contain the old set's name, the new one is used.",
+    ],
+  },
+  {
     version: "151126b7",
     date: "2026-11-15",
     ru: [

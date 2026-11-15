@@ -1,4 +1,8 @@
 import { getSourceCatalogsFromPackage } from "../domain/package.mjs";
+import {
+  chooseProductSet,
+  clearProductSets,
+} from "../domain/product-set-swap.mjs";
 import { AccountPicks } from "./account-picks.mjs";
 import { BulkPicks } from "./bulk-picks.mjs";
 
@@ -321,6 +325,12 @@ export class MassCloneController {
       if (event.target?.dataset?.override) {
         this.dependencies.massCloneView.renderOverrides();
       }
+      // Another product set: names and previews change with it.
+      const swapFrom = event.target?.dataset?.setSwap;
+      if (swapFrom && !state.massRunning) {
+        chooseProductSet(state, swapFrom, event.target.value);
+        this.dependencies.massCloneView.render();
+      }
     });
     root.addEventListener("click", (event) => {
       if (event.target.closest?.("[data-override-toggle]")) {
@@ -328,6 +338,8 @@ export class MassCloneController {
         this.dependencies.massCloneView.renderOverrides();
       } else if (event.target.closest?.("[data-override-clear]")) {
         state.massOverrides = { budget: "", bid: "", start: "" };
+        clearProductSets(state);
+        this.dependencies.massCloneView.render();
         this.dependencies.massCloneView.renderOverrides(true);
       }
     });

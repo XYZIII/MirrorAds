@@ -232,6 +232,7 @@ export function buildDialogStyles(A) {
       ${A} .ma-bulk-cat { display: contents; }
       ${A} .ma-bulk-cat.ma-hidden { display: none; }
       ${A} .ma-bulk-note { flex: 1 1 100%; font-size: 12px; line-height: 1.5; color: var(--ma-ink); }
+      ${A} .ma-ovr-hint { margin: -2px 0 10px; font-size: 11px; color: var(--ma-muted); }
       /* ---- licence ---- */
       ${A} .ma-menu .ma-license { margin: 4px 0; padding: 9px 10px; border-radius: 10px; background: var(--ma-soft); font-size: 12px; }
       ${A} .ma-license-line { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }

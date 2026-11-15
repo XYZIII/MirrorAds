@@ -2,6 +2,8 @@
 
 const LANG_KEY = "mirrorads.panel.lang";
 
+import { EXTRA } from "./i18n-extra.mjs";
+
 const DICT = {
   en: {
     "lang.ru": "Русский",
@@ -35,14 +37,6 @@ const DICT = {
     "news.build": "Build {version}",
     "news.all": "All updates",
     "news.ok": "Got it",
-    "license.until": "until {date}",
-    "license.lifetime": "no end date",
-    "license.renew": "Renew",
-    "license.cabinet": "Cabinet",
-    "license.endsIn": "Your subscription ends in {days} d. — {date}",
-    "license.endsToday": "Your subscription ends today",
-    "license.ended": "Your subscription ended on {date}",
-    "license.hide": "Hide",
     "tab.reports": "Reports",
     "tab.rules": "Rules",
     "rules.source": "Copy rules from",
@@ -261,45 +255,6 @@ const DICT = {
     "clone.mappings": "Page, pixel and catalog mapping",
     "clone.targetsHint": "{n} of {total} accounts selected",
     "clone.targetsNone": "No active ad accounts found.",
-    "targets.withCampaigns": "Hidden as they already have campaigns: {n}.",
-    "camps.none": "no campaigns",
-    "camps.checking": "Checking for campaigns…",
-    "camps.failed": "Could not check this account's campaigns.",
-    "camps.tip": "Campaigns: {n}, active: {active}",
-    "bulk.title": "For the selected:",
-    "bulk.forSelected": "For the selected ({n}):",
-    "bulk.forListed": "For all listed ({n}):",
-    "bulk.hint": "Sets this choice in every selected account that has it",
-    "bulk.page": "Page…",
-    "bulk.pixel": "Pixel…",
-    "bulk.catalog": "Catalog…",
-    "bulk.auto": "Auto everywhere",
-    "bulk.autoName": "Auto",
-    "bulk.copyCatalog": "Copy to the account's BM",
-    "bulk.nothing": "Nothing loaded yet",
-    "bulk.pageWord": "Page",
-    "bulk.pixelWord": "Pixel",
-    "bulk.catalogWord": "Catalog",
-    "bulk.done": "{what} “{name}”: set in {n} of {total}.",
-    "bulk.missing": "Not available in: {names}.",
-    "bulk.andMore": "and {n} more",
-    "bulk.everyListed": "Nothing was selected, so every listed account got it.",
-    "picks.onlyEmpty": "Without campaigns",
-    "picks.onlyEmptyHint":
-      "Show only accounts with no campaigns of their own (active, paused or in review)",
-    "picks.paste": "Paste IDs",
-    "picks.pasteHint": "Select accounts by a pasted list of ad account IDs",
-    "picks.placeholder":
-      "Ad account IDs, one per line, e.g.\n111111111111\n222222222222",
-    "picks.replaceNote": "The selection is replaced by these accounts.",
-    "picks.apply": "Select",
-    "picks.close": "Close",
-    "picks.empty": "No ad account IDs found in the text.",
-    "picks.picked": "Selected {n} of {total}.",
-    "picks.skipped": "Skipped, they already have campaigns ({n}): {ids}",
-    "picks.unusable":
-      "Not usable — disabled or without a payment method ({n}): {ids}",
-    "picks.notFound": "Not available in this profile ({n}): {ids}",
 
     "stat.adsets": "ad sets",
     "stat.ads": "ads",
@@ -471,14 +426,6 @@ const DICT = {
     "news.build": "Сборка {version}",
     "news.all": "Все обновления",
     "news.ok": "Понятно",
-    "license.until": "до {date}",
-    "license.lifetime": "бессрочно",
-    "license.renew": "Продлить",
-    "license.cabinet": "Кабинет",
-    "license.endsIn": "Подписка заканчивается через {days} дн. — {date}",
-    "license.endsToday": "Подписка заканчивается сегодня",
-    "license.ended": "Подписка закончилась {date}",
-    "license.hide": "Скрыть",
     "tab.reports": "Отчёты",
     "tab.rules": "Правила",
     "rules.source": "Откуда копировать правила",
@@ -695,45 +642,6 @@ const DICT = {
     "clone.mappings": "Маппинг страниц, пикселей и каталогов",
     "clone.targetsHint": "выбрано {n} из {total} кабинетов",
     "clone.targetsNone": "Активных рекламных кабинетов не найдено.",
-    "targets.withCampaigns": "Скрыто кабинетов, где уже есть кампании: {n}.",
-    "camps.none": "нет кампаний",
-    "camps.checking": "Проверяю кампании…",
-    "camps.failed": "Не удалось проверить кампании в этом кабинете.",
-    "camps.tip": "Кампаний: {n}, активных: {active}",
-    "bulk.title": "Для выбранных:",
-    "bulk.forSelected": "Для выбранных ({n}):",
-    "bulk.forListed": "Для всех в списке ({n}):",
-    "bulk.hint": "Поставит этот выбор во всех выбранных кабинетах, где он есть",
-    "bulk.page": "Страница…",
-    "bulk.pixel": "Пиксель…",
-    "bulk.catalog": "Каталог…",
-    "bulk.auto": "Авто во всех",
-    "bulk.autoName": "Авто",
-    "bulk.copyCatalog": "Копировать в BM кабинета",
-    "bulk.nothing": "Ещё не загружено",
-    "bulk.pageWord": "Страница",
-    "bulk.pixelWord": "Пиксель",
-    "bulk.catalogWord": "Каталог",
-    "bulk.done": "{what} «{name}»: поставлено в {n} из {total}.",
-    "bulk.missing": "Нет в кабинетах: {names}.",
-    "bulk.andMore": "и ещё {n}",
-    "bulk.everyListed": "Ничего не было выбрано — применено ко всем в списке.",
-    "picks.onlyEmpty": "Без кампаний",
-    "picks.onlyEmptyHint":
-      "Показывать только кабинеты, где нет своих кампаний (активных, на паузе или на проверке)",
-    "picks.paste": "Вставить ID",
-    "picks.pasteHint": "Выбрать кабинеты по списку ID, который прислал агент",
-    "picks.placeholder":
-      "ID кабинетов, каждый с новой строки, например\n111111111111\n222222222222",
-    "picks.replaceNote": "Выбор заменится на эти кабинеты.",
-    "picks.apply": "Выбрать",
-    "picks.close": "Закрыть",
-    "picks.empty": "В тексте нет ID кабинетов.",
-    "picks.picked": "Выбрано {n} из {total}.",
-    "picks.skipped": "Пропущены — уже есть кампании ({n}): {ids}",
-    "picks.unusable":
-      "Нельзя использовать — отключены или без карты ({n}): {ids}",
-    "picks.notFound": "Нет в этом профиле ({n}): {ids}",
 
     "stat.adsets": "адсетов",
     "stat.ads": "объявлений",
@@ -877,6 +785,9 @@ const DICT = {
     "status.busy": "выполняется операция",
   },
 };
+
+// Newer features keep their texts in i18n-extra.mjs.
+for (const lang of Object.keys(DICT)) Object.assign(DICT[lang], EXTRA[lang]);
 
 let lang = "en";
 try {

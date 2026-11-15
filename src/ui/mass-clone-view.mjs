@@ -4,6 +4,10 @@ import { cloneToLabel, getLang, smallLabel, statLabel, t } from "./i18n.mjs";
 import { escapeHtml } from "../utils/string.mjs";
 import { hasCloneOverrides, parseAmount } from "../domain/clone-overrides.mjs";
 import {
+  productSetChoices,
+  syncProductSetBase,
+} from "../domain/product-set-swap.mjs";
+import {
   renderCampaignName,
   sourceAccountLabel,
 } from "../domain/name-template.mjs";
@@ -631,8 +635,15 @@ export class MassCloneView {
     const overrides = state.massOverrides || {};
     const currency =
       state.clonePackage?.source?.currency || this.sourceCurrency() || "";
-    const filled = hasCloneOverrides(overrides);
-    const key = `${state.massOverridesOpen ? 1 : 0}|${currency}|${filled ? 1 : 0}|${getLang()}`;
+    // Product sets: chosen on the original package, kept while it is loaded.
+    syncProductSetBase(state);
+    const setChoices = productSetChoices(state.massSetBase);
+    const swaps = state.massSetSwaps || {};
+    const filled =
+      hasCloneOverrides(overrides) || Object.keys(swaps).length > 0;
+    const key = `${state.massOverridesOpen ? 1 : 0}|${currency}|${filled ? 1 : 0}|${getLang()}|${JSON.stringify(swaps)}|${setChoices
+      .map((choice) => `${choice.id}:${choice.options.length}`)
+      .join(",")}`;
     if (!force && this.overridesKey === key && box.childElementCount) return;
     this.overridesKey = key;
     const field = (name, type, label, extra = "") =>
@@ -652,6 +663,32 @@ export class MassCloneView {
                 ${field("bid", "text", t("overrides.bid", { currency: currency || "…" }), 'inputmode="decimal" placeholder="—"')}
                 ${field("start", "datetime-local", t("overrides.start"))}
               </div>
+              ${
+                setChoices.length
+                  ? `<div class="ma-row">${setChoices
+                      .map(
+                        (choice) =>
+                          `<label class="ma-field"><span>${escapeHtml(t("overrides.set", { name: choice.name }))}</span><select data-set-swap="${escapeHtml(choice.id)}">${choice.options
+                            .map(
+                              (option) =>
+                                `<option value="${escapeHtml(option.id)}"${
+                                  option.id === (swaps[choice.id] || choice.id)
+                                    ? " selected"
+                                    : ""
+                                }>${escapeHtml(
+                                  option.id === choice.id
+                                    ? t("overrides.setKeep", {
+                                        name: option.name,
+                                      })
+                                    : option.name,
+                                )}</option>`,
+                            )
+                            .join("")}</select></label>`,
+                      )
+                      .join("")}</div>
+                    <div class="ma-ovr-hint">${escapeHtml(t("overrides.setNote"))}</div>`
+                  : ""
+              }
               <div class="ma-ovr-note">
                 <span>${escapeHtml(t("overrides.note"))}</span>
                 <button type="button" class="ma-ovr-clear" data-always-enabled data-override-clear>${escapeHtml(t("overrides.clear"))}</button>
@@ -680,6 +717,13 @@ export class MassCloneView {
       parts.push(
         `${t("overrides.short.start")} ${String(overrides.start).replace("T", " ")}`,
       );
+    }
+    const swaps = state.massSetSwaps || {};
+    for (const choice of productSetChoices(state.massSetBase)) {
+      const chosen = choice.options.find(
+        (option) => option.id === swaps[choice.id],
+      );
+      if (chosen) parts.push(`${t("overrides.short.set")} ${chosen.name}`);
     }
     return parts.join(" · ");
   }
