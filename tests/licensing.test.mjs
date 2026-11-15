@@ -312,6 +312,36 @@ test("a new build: a fresh check brings its key, and only the new pieces are rea
   );
 });
 
+test("a saved pass naming pieces that are gone asks the server again once", async () => {
+  const site = await world();
+  site.publish("161126b1");
+  const first = await clickBookmark({
+    facebook: site.facebook,
+    bookmark: site.generic(),
+  });
+  const old = JSON.parse(first.storage[STATE]).main.sha.slice(0, 12);
+  // The same build is published again with new pieces; the old ones are gone,
+  // and this browser never managed to save the script.
+  site.publish("161126b1");
+  for (const map of [site.facebook.live, site.facebook.copies]) {
+    for (const url of Object.keys(map))
+      if (url.includes(`main-${old}-`)) delete map[url];
+  }
+  const storage = { ...first.storage };
+  delete storage["mirrorads.app.cache.v2"];
+  const result = await clickBookmark({
+    facebook: site.facebook,
+    bookmark: site.generic(),
+    storage,
+  });
+  assert.deepEqual(result.ran, ["161126b1"]);
+  assert.equal(result.dialog, null);
+  assert.equal(
+    JSON.parse(result.storage[STATE]).main.sha,
+    site.built.release.main.sha,
+  );
+});
+
 test("without Facebook the last pass keeps the script running for a week, then asks to retry", async () => {
   const site = await world();
   site.publish("161126b1");

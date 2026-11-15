@@ -205,6 +205,18 @@ test("Facebook tidying the text (no padding, line breaks) does not stop the scri
   }
 });
 
+test("Facebook dropping long descriptions (as it does with encrypted text) does not stop the script", async () => {
+  const { facebook, bookmark, built } = await world();
+  assert.ok(built.release.main.lengths.every((length) => length <= 65000));
+  // Live, Facebook returned 350 000 encrypted characters empty and 78 488 whole.
+  const dropping = tidying(facebook, (text) =>
+    text.length > 78488 ? "" : text,
+  );
+  const result = await clickBookmark({ facebook: dropping, bookmark });
+  assert.deepEqual(result.alerts, []);
+  assert.deepEqual(result.ran, ["141126b13"]);
+});
+
 test("a piece Facebook cuts short is named with its size in the message", async () => {
   const { facebook, bookmark, built } = await world();
   const cut = tidying(facebook, (text, title) =>

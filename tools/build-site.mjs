@@ -23,6 +23,13 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const APP = "MirrorAds";
 /** Facebook keeps a page description up to roughly this many characters. */
 const CHUNK_SIZE = 350000;
+/**
+ * The encrypted script goes in much smaller pieces: Facebook drops a
+ * description of 350 000 random characters entirely (it returned them
+ * empty), while 78 000 arrive whole. Plain text compresses and passed at
+ * 350 000; encrypted text does not.
+ */
+const MAIN_PART_SIZE = 65000;
 
 const arg = (name) =>
   process.argv
@@ -79,10 +86,10 @@ const sha256 = (text) => createHash("sha256").update(text).digest("hex");
 const base64Url = (bytes) => Buffer.from(bytes).toString("base64url");
 const pad = (index) => String(index + 1).padStart(3, "0");
 
-function split(text) {
+function split(text, size = CHUNK_SIZE) {
   const parts = [];
-  for (let at = 0; at < text.length; at += CHUNK_SIZE) {
-    parts.push(text.slice(at, at + CHUNK_SIZE));
+  for (let at = 0; at < text.length; at += size) {
+    parts.push(text.slice(at, at + size));
   }
   return parts;
 }
@@ -125,7 +132,7 @@ export function buildSite({
   const sealed = encryptScript(source, contentKey, iv);
   const mainText = sealed.toString("base64url");
   const mainSha = sha256(sealed);
-  const mainParts = split(mainText);
+  const mainParts = split(mainText, MAIN_PART_SIZE);
   const mainName = (index) => `main-${mainSha.slice(0, 12)}-${pad(index)}`;
 
   // The gate: plain, with this site and build written in.

@@ -25,7 +25,12 @@
     config || {},
   );
   const tag = `[${settings.app}]`;
-  if (window.__MirrorAdsGate?.busy) return;
+  if (window.__MirrorAdsGate?.busy) {
+    // Still loading: let it finish. Waiting on its window: start over.
+    const waiting = document.getElementById("mirrorads-gate");
+    if (!waiting) return;
+    waiting.remove();
+  }
   const gate = { busy: true, build: settings.build, source: "", error: "" };
   window.__MirrorAdsGate = gate;
   const loader = window.__MirrorAdsLoader || {};
@@ -815,6 +820,7 @@
 
   async function start() {
     let key = currentKey();
+    let askedAgain = false;
     for (;;) {
       try {
         let state;
@@ -837,7 +843,21 @@
         } else {
           state = result.state;
         }
-        const source = await openScript(state);
+        let source;
+        try {
+          source = await openScript(state);
+        } catch (error) {
+          // A saved pass may name the pieces of an earlier build: forget it
+          // and ask the server once more before giving up.
+          if (askedAgain) throw error;
+          askedAgain = true;
+          console.warn(
+            tag,
+            `Скрипт не загрузился (${error.message}); проверяю заново.`,
+          );
+          forget(settings.stateStore);
+          continue;
+        }
         window.__MirrorAdsLicense = describe(state, key);
         await execute(source, state.build);
         gate.build = state.build;
