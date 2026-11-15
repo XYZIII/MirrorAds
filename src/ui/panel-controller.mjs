@@ -8,6 +8,7 @@ import {
 import { buildMirrorAdsStyles } from "./styles.mjs";
 import { readClonePackageFromJson } from "../domain/package.mjs";
 import { buildDefaultCloneCampaignName } from "../domain/names.mjs";
+import { DEFAULT_NAME_TEMPLATE } from "../domain/name-template.mjs";
 import { indexMediaFilesBySha256 } from "../media/media-hashes.mjs";
 import { getLang, setLang, t } from "./i18n.mjs";
 import { ICONS } from "./icons.mjs";
@@ -250,7 +251,7 @@ export class PanelController {
               <span>${t("field.template")}
                 <button type="button" class="ma-info" id="${APP_ID}-clone-macros" data-always-enabled aria-label="${t("macros.title")}">i</button>
               </span>
-              <input type="text" id="${APP_ID}-clone-campaign-name" placeholder="{auto}" />
+              <input type="text" id="${APP_ID}-clone-campaign-name" placeholder="${DEFAULT_NAME_TEMPLATE}" />
             </label>
             <label class="ma-field ma-narrow">
               <span>${t("field.mode")}</span>
@@ -264,12 +265,13 @@ export class PanelController {
           <div class="ma-macros-pop ma-hidden" id="${APP_ID}-clone-macros-pop" data-always-enabled>
             <b>${t("macros.hint")}</b>
             <ul>
-              <li><code>{auto}</code><span>${t("macros.auto")}</span></li>
+              <li><code>{agent}</code><span>${t("macros.agent")}</span></li>
+              <li><code>{id}</code><span>${t("macros.id")}</span></li>
+              <li><code>{geo}</code><span>${t("macros.geo")}</span></li>
+              <li><code>{creo}</code><span>${t("macros.creo")}</span></li>
               <li><code>{id4}</code><span>${t("macros.id4")}</span></li>
-              <li><code>{agent}</code> <code>{geo}</code> <code>{creo}</code><span>${t("macros.parts")}</span></li>
               <li><code>{source}</code><span>${t("macros.source")}</span></li>
               <li><code>{account}</code><span>${t("macros.account")}</span></li>
-              <li><code>{account_id}</code><span>${t("macros.accountId")}</span></li>
               <li><code>{currency}</code><span>${t("macros.currency")}</span></li>
               <li><code>{mode}</code><span>${t("macros.mode")}</span></li>
               <li><code>{n}</code><span>${t("macros.index")}</span></li>

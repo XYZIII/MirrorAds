@@ -9,6 +9,7 @@ import {
   syncProductSetBase,
 } from "../domain/product-set-swap.mjs";
 import {
+  packageCountries,
   renderCampaignName,
   sourceAccountLabel,
 } from "../domain/name-template.mjs";
@@ -515,6 +516,7 @@ export class MassCloneView {
       mode: state.massMode,
       index: 1,
       adNames: (data?.ads || []).map((ad) => ad?.name),
+      countries: packageCountries(data),
     }).name;
   }
 

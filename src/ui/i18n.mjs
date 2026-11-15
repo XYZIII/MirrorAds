@@ -284,8 +284,8 @@ const DICT = {
     "overrides.short.start": "start",
     "field.newName": "New campaign name",
     "field.newNameHint":
-      "Filled in automatically. Type to set this account's name by hand; macros work here too.",
-    "field.newNameReset": "Back to the automatic name",
+      "Built from the template. Type to set this account's name by hand; macros work here too.",
+    "field.newNameReset": "Back to the template name",
 
     "btn.export": "Export",
     "btn.import": "Import",
@@ -345,14 +345,15 @@ const DICT = {
 
     "macros.title": "Name macros",
     "macros.hint": "Click a macro to insert it into the name template:",
-    "macros.auto":
-      "source name with the account marker (id, its first 4 digits or the account label) replaced by the full id of the target account (default)",
+    "macros.agent": "agent: the first word of the source campaign name",
+    "macros.id": "full id of the target account",
+    "macros.geo":
+      "geo: the countries the campaign targets (AU, or AU-NZ for several)",
+    "macros.creo":
+      "creative: the name from the ads (creo_V1-3 when they differ only in the number)",
     "macros.id4": "first 4 digits of the target account id",
-    "macros.parts":
-      "agent and geo are the 1st and 3rd parts of the source name split by _; creo is the creative name from the ads (Shugairi_V1-3 when they differ only in the number)",
     "macros.source": "source campaign name",
     "macros.account": "target account name",
-    "macros.accountId": "target account id",
     "macros.currency": "target account currency",
     "macros.mode": "clone mode (DRAFT / PAUSED / ACTIVE)",
     "macros.index": "global campaign copy number (1, 2, 3 …)",
@@ -671,8 +672,8 @@ const DICT = {
     "overrides.short.start": "старт",
     "field.newName": "Название кампании",
     "field.newNameHint":
-      "Подставляется автоматически. Можно вписать своё название для этого кабинета; макросы тоже работают.",
-    "field.newNameReset": "Вернуть автоматическое название",
+      "Собирается по шаблону. Можно вписать своё название для этого кабинета; макросы тоже работают.",
+    "field.newNameReset": "Вернуть название по шаблону",
 
     "btn.export": "Экспорт",
     "btn.import": "Импорт",
@@ -737,14 +738,15 @@ const DICT = {
 
     "macros.title": "Макросы названия",
     "macros.hint": "Нажмите на макрос, чтобы вставить его в шаблон названия:",
-    "macros.auto":
-      "название источника, где метка кабинета (id, его первые 4 цифры или имя кабинета) заменена на полный id целевого (по умолчанию)",
+    "macros.agent": "агент: первое слово названия кампании-источника",
+    "macros.id": "полный id целевого кабинета",
+    "macros.geo":
+      "гео: страны из таргетинга кампании (AU, или AU-NZ, если их несколько)",
+    "macros.creo":
+      "креатив: название из объявлений (creo_V1-3, если отличаются только номером)",
     "macros.id4": "первые 4 цифры id целевого кабинета",
-    "macros.parts":
-      "agent и geo — 1-я и 3-я части названия источника по знаку _; creo — название креатива из объявлений (Shugairi_V1-3, если отличаются только номером)",
     "macros.source": "название кампании-источника",
     "macros.account": "название целевого кабинета",
-    "macros.accountId": "id целевого кабинета",
     "macros.currency": "валюта целевого кабинета",
     "macros.mode": "режим клона (DRAFT / PAUSED / ACTIVE)",
     "macros.index": "сквозной номер копии кампании (1, 2, 3 …)",

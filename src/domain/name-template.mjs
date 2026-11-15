@@ -1,9 +1,13 @@
 /**
- * Campaign naming convention support: AGENT_ID4_GEO_CREO, where ID4 is the
- * first four digits of the ad account id the campaign lives in.
+ * Campaign names of clones, built from macros: AGENT_ID_GEO_CREO by
+ * default. Every part comes from something that does not depend on how
+ * the source campaign was named — the target account's id, the targeted
+ * countries, the ads' names — except the agent, the name's first word.
+ * The older {auto} (the source name with its account marker swapped) still
+ * works when typed, but is no longer offered.
  */
 
-export const DEFAULT_NAME_TEMPLATE = "{auto}";
+export const DEFAULT_NAME_TEMPLATE = "{agent}_{id}_{geo}_{creo}";
 export const ACCOUNT_PREFIX_LENGTH = 4;
 const SEPARATOR = "_";
 
@@ -123,14 +127,71 @@ export function sourceAccountLabel(accounts, sourceAccountId) {
   return String(account?.name || "");
 }
 
-/** Variables for the campaign name template; unknown macros stay untouched. */
+/**
+ * The agent for {agent}: the first word of the source campaign name, once
+ * the retired VV_ prefix and Ads Manager's "– Copy N" are gone — "AGENT" in
+ * "VV_AGENT_1840AU creo_V4 – Copy 3", whatever follows it.
+ */
+export function agentOf(sourceName) {
+  const name = stripDroppedPrefix(stripCopySuffix(sourceName)).trim();
+  return name.match(/^[\p{L}\p{N}]+/u)?.[0] || "";
+}
+
+/**
+ * The countries the campaign targets, from its ad sets: the clone keeps
+ * the targeting, so this is its geo whatever the source name says.
+ */
+export function packageCountries(packageData) {
+  const found = [];
+  const add = (code) => {
+    const country = String(code || "")
+      .trim()
+      .toUpperCase();
+    if (/^[A-Z]{2}$/.test(country) && !found.includes(country)) {
+      found.push(country);
+    }
+  };
+  for (const adset of packageData?.adsets || []) {
+    const geo = adset?.targeting?.geo_locations || {};
+    const countries = Array.isArray(geo.countries) ? geo.countries : [];
+    countries.forEach(add);
+    if (countries.length) continue;
+    // Regions and cities name their country.
+    for (const key of ["regions", "cities", "zips"]) {
+      for (const place of Array.isArray(geo[key]) ? geo[key] : []) {
+        add(place?.country || place?.country_code);
+      }
+    }
+  }
+  return found;
+}
+
+/** A two-letter code standing on its own or after digits: "AU" in "1840AU". */
+function geoInName(sourceName) {
+  const name = stripDroppedPrefix(stripCopySuffix(sourceName));
+  return name.match(/(?<!\p{L})\d*([A-Z]{2})(?![\p{L}\p{N}])/u)?.[1] || "";
+}
+
+/**
+ * The geo for {geo}: the targeted countries, "AU" or "AU-NZ". With no
+ * country in the targeting, or more than three, the code the source name
+ * carries is used, if it has one.
+ */
+function geoOf(countries, sourceName) {
+  const list = Array.isArray(countries) ? countries : [];
+  if (list.length && list.length <= 3) return list.join("-");
+  const named = geoInName(sourceName);
+  if (named || !list.length) return named;
+  return `${list.slice(0, 3).join("-")}+${list.length - 3}`;
+}
+
 /**
  * The creative name for {creo}. The operator writes the full creative name
  * into the ad, so the ads are the source of truth:
  * - one name on every ad: that name;
  * - names that differ only in a trailing number: the shared part with the
- *   range, "Shugairi_V1" + "Shugairi_V3" -> "Shugairi_V1-3";
- * - names that differ otherwise: the part they share, "Shugairi";
+ *   range, "creo_V1" + "creo_V3" -> "creo_V1-3";
+ * - names that differ otherwise: the part they share, "creo";
  * - nothing shared: the first ad name.
  * Only a package without ads falls back to the tail of the campaign name.
  */
@@ -179,6 +240,7 @@ export function buildNameTemplateVars({
   sourceAccountName = "",
   targetAccountId = "",
   adNames = [],
+  countries = [],
 } = {}) {
   const parts = splitCampaignName(sourceName);
   const rebound = rebindAccountSegment(
@@ -189,10 +251,11 @@ export function buildNameTemplateVars({
   );
   const vars = {
     auto: rebound.name,
+    id: digitsOf(targetAccountId),
     id4: accountIdPrefix(targetAccountId),
     src_id4: accountIdPrefix(sourceAccountId),
-    agent: parts.agent,
-    geo: parts.geo,
+    agent: agentOf(sourceName),
+    geo: geoOf(countries, sourceName),
     creo: pickCreativeName(sourceName, adNames, parts.creo),
   };
   parts.segments.forEach((segment, index) => {
@@ -201,10 +264,17 @@ export function buildNameTemplateVars({
   return { vars, autoReplaced: rebound.replaced };
 }
 
+/** Stands for a macro with no value until its separator is dropped. */
+const EMPTY = "\u0000";
+const EMPTY_AT_START = /^(?:\u0000[\s_.|-]*)+/;
+const EMPTY_WITH_SEPARATOR = /[\s_.|-]*\u0000/g;
+
 /**
  * Renders the campaign name template for one target account. Pure, so the
  * targets table can preview the exact name the clone will get. Unknown macros
- * stay untouched; an empty template means {auto}.
+ * stay untouched; an empty template means the default one. A macro with
+ * nothing to put in takes its separator with it: no geo in
+ * {agent}_{id}_{geo}_{creo} gives AGENT_ID_CREO, not AGENT_ID__CREO.
  */
 export function renderCampaignName({
   template = "",
@@ -217,6 +287,7 @@ export function renderCampaignName({
   index = 0,
   date = "",
   adNames = [],
+  countries = [],
 } = {}) {
   const fallback = sourceName || "Cloned campaign";
   const raw = String(template || "").trim() || DEFAULT_NAME_TEMPLATE;
@@ -227,6 +298,7 @@ export function renderCampaignName({
     sourceAccountName,
     targetAccountId,
     adNames,
+    countries,
   });
   const vars = {
     ...naming.vars,
@@ -241,9 +313,11 @@ export function renderCampaignName({
   const rendered = raw
     .replace(/\{(\w+)\}/g, (match, key) =>
       Object.prototype.hasOwnProperty.call(vars, key)
-        ? String(vars[key] ?? "")
+        ? String(vars[key] ?? "").trim() || EMPTY
         : match,
     )
+    .replace(EMPTY_AT_START, "")
+    .replace(EMPTY_WITH_SEPARATOR, "")
     .trim();
   return {
     name: rendered || fallback,

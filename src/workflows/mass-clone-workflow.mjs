@@ -10,6 +10,7 @@ import {
 import { normalizeCurrency } from "../domain/currency.mjs";
 import { sleep } from "../utils/object.mjs";
 import {
+  packageCountries,
   renderCampaignName,
   sourceAccountLabel,
 } from "../domain/name-template.mjs";
@@ -76,7 +77,7 @@ export class MassCloneWorkflow {
     return state.massSequence;
   }
 
-  /** Renders the campaign name template and reports a name {auto} could not rebind. */
+  /** Renders the campaign name template; a typed {auto} that found no account marker is reported. */
   buildCampaignName(template, sourceName, account, context = {}) {
     const result = renderCampaignName({
       template,
@@ -89,6 +90,7 @@ export class MassCloneWorkflow {
       index: context.index,
       date: context.date,
       adNames: context.adNames,
+      countries: context.countries,
     });
     if (result.autoMissed) {
       this.dependencies.logging.log(
@@ -362,6 +364,7 @@ export class MassCloneWorkflow {
         // still consumes its number, so names are never reused.
         index: this.nextSequence(),
         adNames: (packageData?.ads || []).map((ad) => ad?.name),
+        countries: packageCountries(packageData),
       },
     );
     row.campaignName = campaignName;

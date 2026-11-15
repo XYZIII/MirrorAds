@@ -2,15 +2,19 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   accountIdPrefix,
+  agentOf,
   buildNameTemplateVars,
+  DEFAULT_NAME_TEMPLATE,
+  packageCountries,
+  pickCreativeName,
   rebindAccountSegment,
   renderCampaignName,
   sourceAccountLabel,
 } from "../src/domain/name-template.mjs";
 import { MassCloneWorkflow } from "../src/workflows/mass-clone-workflow.mjs";
 
-const SOURCE = "1840865430583018";
-const TARGET = "1745662286529117";
+const SOURCE = "1840000000000018";
+const TARGET = "1745000000000117";
 
 function workflow(logs = [], state = {}) {
   return new MassCloneWorkflow({
@@ -25,10 +29,111 @@ test("account prefix is the first four digits, with or without act_", () => {
   assert.equal(accountIdPrefix(""), "");
 });
 
-test("{auto} puts the full target id where the source prefix stands", () => {
+test("the default name is AGENT_ID_GEO_CREO from macros", () => {
+  assert.equal(DEFAULT_NAME_TEMPLATE, "{agent}_{id}_{geo}_{creo}");
+  const logs = [];
+  assert.equal(
+    workflow(logs).buildCampaignName(
+      "",
+      "VV_AGENT_1840AU creo_V4 – Copy 17",
+      { accountId: TARGET, name: "Target" },
+      {
+        sourceAccountId: `act_${SOURCE}`,
+        adNames: ["creo_V4", "creo_V4"],
+        countries: ["AU"],
+      },
+    ),
+    `AGENT_${TARGET}_AU_creo_V4`,
+  );
+  assert.equal(logs.length, 0, "no account marker is needed any more");
+  // However the source was named, the parts come out the same.
+  for (const sourceName of [
+    "AGENT_1840AU creo_V1",
+    "AGENT 1840 AU creo",
+    "AGENT-AB12-AU test",
+  ]) {
+    assert.equal(
+      renderCampaignName({
+        sourceName,
+        sourceAccountId: SOURCE,
+        account: { accountId: `act_${TARGET}` },
+        adNames: ["creo_V5"],
+        countries: ["AU"],
+      }).name,
+      `AGENT_${TARGET}_AU_creo_V5`,
+      sourceName,
+    );
+  }
+});
+
+test("{agent} is the first word of the source name", () => {
+  assert.equal(agentOf("VV_AGENT_1840AU creo_V4 – Copy 17"), "AGENT");
+  assert.equal(agentOf("AGENT 1840 AU"), "AGENT");
+  assert.equal(agentOf("  Team1-AU"), "Team1");
+  assert.equal(agentOf(""), "");
+});
+
+test("{geo} is the targeted countries; the source name only when they say nothing", () => {
+  const packageData = {
+    adsets: [
+      { targeting: { geo_locations: { countries: ["AU", "nz"] } } },
+      { targeting: { geo_locations: { countries: ["AU"] } } },
+      {
+        targeting: {
+          geo_locations: { regions: [{ key: "1", country: "US" }] },
+        },
+      },
+      {},
+    ],
+  };
+  assert.deepEqual(packageCountries(packageData), ["AU", "NZ", "US"]);
+  assert.deepEqual(packageCountries(null), []);
+  const geo = (countries, sourceName = "AGENT_1840DE creo") =>
+    buildNameTemplateVars({ sourceName, countries }).vars.geo;
+  assert.equal(geo(["AU"]), "AU");
+  assert.equal(geo(["AU", "NZ"]), "AU-NZ");
+  // No country in the targeting: the code the name carries.
+  assert.equal(geo([]), "DE");
+  assert.equal(geo([], "AGENT_AB12AU creo"), "AU", "AB12 is an account label");
+  assert.equal(geo([], "AGENT creo"), "");
+  // Many countries: the name's code, else the first three and a count.
+  assert.equal(geo(["AT", "BE", "DE", "FR"], "AGENT_1840EU creo"), "EU");
+  assert.equal(geo(["AT", "BE", "DE", "FR"], "AGENT creo"), "AT-BE-DE+1");
+});
+
+test("{id} is the target account's full id, {id4} its first four digits", () => {
+  const { vars } = buildNameTemplateVars({
+    sourceName: "AGENT_1840AU creo",
+    sourceAccountId: SOURCE,
+    targetAccountId: `act_${TARGET}`,
+  });
+  assert.equal(vars.id, TARGET);
+  assert.equal(vars.id4, "1745");
+  assert.equal(vars.src_id4, "1840");
+});
+
+test("a macro with nothing to put in takes its separator with it", () => {
+  const render = (template, extra = {}) =>
+    renderCampaignName({
+      template,
+      sourceName: "AGENT creo",
+      account: { accountId: TARGET },
+      adNames: ["creo_V4"],
+      ...extra,
+    }).name;
+  assert.equal(render("{agent}_{id}_{geo}_{creo}"), `AGENT_${TARGET}_creo_V4`);
+  assert.equal(render("{geo}_{agent}"), "AGENT");
+  assert.equal(render("{agent} - {geo}"), "AGENT");
+  assert.equal(render("{agent}_{n}"), "AGENT");
+  assert.equal(render("{agent}_{n}", { index: 2 }), "AGENT_2");
+  assert.equal(render("{n}"), "AGENT creo", "nothing at all: the source name");
+  assert.equal(render("{agent}_{unknown}"), "AGENT_{unknown}");
+});
+
+test("a typed {auto} still puts the full target id where the source prefix stands", () => {
   assert.deepEqual(
-    rebindAccountSegment("LUCKY_1840AU Gina_V4", SOURCE, TARGET),
-    { name: `LUCKY_${TARGET}AU Gina_V4`, replaced: true },
+    rebindAccountSegment("AGENT_1840AU creo_V4", SOURCE, TARGET),
+    { name: `AGENT_${TARGET}AU creo_V4`, replaced: true },
   );
   // Underscore-separated prefix, and the same digits later in the creative.
   assert.equal(
@@ -36,132 +141,45 @@ test("{auto} puts the full target id where the source prefix stands", () => {
     `Soc_${TARGET}_DE_vid_1840_b`,
   );
   // A longer number that merely starts with the prefix is not the marker.
-  assert.deepEqual(rebindAccountSegment("LUCKY_18405AU Gina", SOURCE, TARGET), {
-    name: "LUCKY_18405AU Gina",
+  assert.deepEqual(rebindAccountSegment("AGENT_18405AU creo", SOURCE, TARGET), {
+    name: "AGENT_18405AU creo",
     replaced: false,
   });
-});
-
-test("{auto} replaces a full source id, so renamed campaigns keep working", () => {
+  // A full source id is replaced too.
   assert.equal(
-    rebindAccountSegment(`PEAK_${SOURCE}AU Matt_V2 S`, SOURCE, TARGET).name,
-    `PEAK_${TARGET}AU Matt_V2 S`,
-  );
-  // Same-account clone of an old-style name is upgraded to the full id.
-  assert.equal(
-    rebindAccountSegment("PEAK_1840AU Matt_V2 S", SOURCE, SOURCE).name,
-    `PEAK_${SOURCE}AU Matt_V2 S`,
+    rebindAccountSegment(`AGENT_${SOURCE}AU promo_V2 S`, SOURCE, TARGET).name,
+    `AGENT_${TARGET}AU promo_V2 S`,
   );
 });
 
-test("{auto} recognises the agent's account label in the name", () => {
+test("a typed {auto} recognises the account label and drops copy suffixes", () => {
   for (const name of [
-    "PEAK_VD47AU Gina_V1-3",
-    "PEAK_VD 47AU Gina_V1-3",
-    "PEAK_vd-47AU Gina_V1-3",
+    "AGENT_AB12AU creo_V1-3",
+    "AGENT_AB 12AU creo_V1-3",
+    "AGENT_ab-12AU creo_V1-3",
   ]) {
     assert.deepEqual(
-      rebindAccountSegment(name, "1999000000000001", TARGET, "VD | 47"),
-      { name: `PEAK_${TARGET}AU Gina_V1-3`, replaced: true },
+      rebindAccountSegment(name, "1999000000000001", TARGET, "AB | 12"),
+      { name: `AGENT_${TARGET}AU creo_V1-3`, replaced: true },
       name,
     );
   }
-  // VD470 is another account, and a label without a digit is too generic.
   assert.equal(
-    rebindAccountSegment("PEAK_VD470AU", "1999000000000001", TARGET, "VD | 47")
+    rebindAccountSegment("AGENT_AB120AU", "1999000000000001", TARGET, "AB | 12")
       .replaced,
     false,
   );
   assert.equal(
-    rebindAccountSegment("PEAK_MainAU", "1999000000000001", TARGET, "Main")
-      .replaced,
-    false,
-  );
-});
-
-test("{auto} drops the Ads Manager copy suffix and the retired VV_ prefix", () => {
-  assert.equal(
-    rebindAccountSegment("VV_LUCKY_1840AU Gina_V4 – Copy 14", SOURCE, TARGET)
+    rebindAccountSegment("VV_AGENT_1840AU creo_V4 – Copy 14", SOURCE, TARGET)
       .name,
-    `LUCKY_${TARGET}AU Gina_V4`,
+    `AGENT_${TARGET}AU creo_V4`,
   );
-  // Only a leading VV_ goes; the same letters elsewhere stay.
-  assert.equal(
-    rebindAccountSegment("LUCKY_1840AU VV_V4 - Copy", SOURCE, TARGET).name,
-    `LUCKY_${TARGET}AU VV_V4`,
-  );
-});
-
-test("an unknown source account falls back to a four-digit second segment", () => {
   assert.equal(
     rebindAccountSegment("Soc_1234_DE_vid7", "", TARGET).name,
     `Soc_${TARGET}_DE_vid7`,
   );
-});
-
-test("a name without an account marker is left untouched and reported", () => {
-  assert.deepEqual(rebindAccountSegment("Summer sale 2026", SOURCE, TARGET), {
-    name: "Summer sale 2026",
-    replaced: false,
-  });
+  // No marker: left untouched, and the run says so.
   const logs = [];
-  const name = workflow(logs).buildCampaignName(
-    "",
-    "Summer sale 2026",
-    { accountId: TARGET },
-    { sourceAccountId: SOURCE },
-  );
-  assert.equal(name, "Summer sale 2026");
-  assert.equal(logs.length, 1);
-  assert.equal(logs[0][0], "warn");
-});
-
-test("an empty template defaults to {auto}", () => {
-  const logs = [];
-  assert.equal(
-    workflow(logs).buildCampaignName(
-      "",
-      "LUCKY_1840AU Gina_V4",
-      { accountId: TARGET, name: "Target" },
-      { sourceAccountId: `act_${SOURCE}` },
-    ),
-    `LUCKY_${TARGET}AU Gina_V4`,
-  );
-  assert.equal(logs.length, 0);
-});
-
-test("part macros rebuild the name explicitly", () => {
-  const { vars } = buildNameTemplateVars({
-    sourceName: "Soc_1840_DE_vid_7",
-    sourceAccountId: SOURCE,
-    targetAccountId: TARGET,
-  });
-  assert.equal(vars.agent, "Soc");
-  assert.equal(vars.geo, "DE");
-  assert.equal(vars.creo, "vid_7");
-  assert.equal(vars.id4, "1745");
-  assert.equal(vars.src_id4, "1840");
-  assert.equal(
-    workflow().buildCampaignName(
-      "{agent}_{account_id}_{geo}_{creo}_{n}",
-      "Soc_1840_DE_vid_7",
-      { accountId: TARGET },
-      { sourceAccountId: SOURCE, index: 3 },
-    ),
-    `Soc_${TARGET}_DE_vid_7_3`,
-  );
-});
-
-test("renderCampaignName previews the exact name and flags a miss", () => {
-  const result = renderCampaignName({
-    template: "",
-    sourceName: "PEAK_VD47AU Gina_V1-3",
-    sourceAccountId: "1999000000000001",
-    sourceAccountName: "VD | 47",
-    account: { id: TARGET, name: "VD | 48" },
-  });
-  assert.equal(result.name, `PEAK_${TARGET}AU Gina_V1-3`);
-  assert.equal(result.autoMissed, false);
   const missed = renderCampaignName({
     template: "{auto}",
     sourceName: "Summer sale",
@@ -170,14 +188,22 @@ test("renderCampaignName previews the exact name and flags a miss", () => {
   });
   assert.equal(missed.name, "Summer sale");
   assert.equal(missed.autoMissed, true);
+  workflow(logs).buildCampaignName(
+    "{auto}",
+    "Summer sale",
+    { accountId: TARGET },
+    { sourceAccountId: SOURCE },
+  );
+  assert.equal(logs.length, 1);
+  assert.equal(logs[0][0], "warn");
 });
 
 test("the source account label is looked up by id", () => {
   const accounts = [
-    { id: "1999000000000001", name: "VD | 47" },
-    { id: TARGET, name: "VD | 48" },
+    { id: "1999000000000001", name: "AB | 12" },
+    { id: TARGET, name: "AB | 13" },
   ];
-  assert.equal(sourceAccountLabel(accounts, "act_1999000000000001"), "VD | 47");
+  assert.equal(sourceAccountLabel(accounts, "act_1999000000000001"), "AB | 12");
   assert.equal(sourceAccountLabel(accounts, "5"), "");
   assert.equal(sourceAccountLabel(accounts, ""), "");
 });
@@ -210,31 +236,26 @@ test("a name typed for one account travels with that target only", () => {
   );
 });
 
-test("{creo} is the creative name written into the ad", async () => {
-  const { pickCreativeName, renderCampaignName } =
-    await import("../src/domain/name-template.mjs");
+test("{creo} is the creative name written into the ad", () => {
   const pick = (names) => pickCreativeName("", names, "tail");
-  assert.equal(pick(["Shugairi_V1", "Shugairi_V1"]), "Shugairi_V1");
+  assert.equal(pick(["creo_V1", "creo_V1"]), "creo_V1");
   // Differ only in the number: the range.
-  assert.equal(
-    pick(["Shugairi_V3", "Shugairi_V3", "Shugairi_V1"]),
-    "Shugairi_V1-3",
-  );
-  assert.equal(pick(["Gina_V10", "Gina_V12", "Gina_V11"]), "Gina_V10-12");
+  assert.equal(pick(["creo_V3", "creo_V3", "creo_V1"]), "creo_V1-3");
+  assert.equal(pick(["creo_V10", "creo_V12", "creo_V11"]), "creo_V10-12");
   // Differ otherwise: the shared part, cut at a whole word.
-  assert.equal(pick(["Shugairi_V1", "Shugairi_test"]), "Shugairi");
-  assert.equal(pick(["Shugairi_Vid", "Shugairi_Var"]), "Shugairi");
-  assert.equal(pick(["Shugairi V1", "Shugairi new"]), "Shugairi");
+  assert.equal(pick(["creo_V1", "creo_test"]), "creo");
+  assert.equal(pick(["creo_Vid", "creo_Var"]), "creo");
+  assert.equal(pick(["creo V1", "creo new"]), "creo");
   // Nothing in common: the first ad; no ads: the tail of the campaign name.
-  assert.equal(pick(["Gina_V1", "Mila_V2"]), "Gina_V1");
+  assert.equal(pick(["creo_V1", "promo_V2"]), "creo_V1");
   assert.equal(pick([]), "tail");
   assert.equal(
     renderCampaignName({
       template: "{account}_{creo}",
-      sourceName: "JACK_PQ585SA_Shugairi_V1",
-      account: { id: "1758609221900217", name: "PQ600" },
-      adNames: ["Shugairi_V3", "Shugairi_V3", "Shugairi_V1"],
+      sourceName: "AGENT_AB12SA_creo_V1",
+      account: { id: "1758000000000217", name: "AB600" },
+      adNames: ["creo_V3", "creo_V3", "creo_V1"],
     }).name,
-    "PQ600_Shugairi_V1-3",
+    "AB600_creo_V1-3",
   );
 });

@@ -5,23 +5,35 @@
  */
 export const CHANGELOG = [
   {
+    version: "151126b10",
+    date: "2026-11-15",
+    ru: [
+      "Название кампании собирается по шаблону {agent}_{id}_{geo}_{creo}: агент — первое слово названия источника, полный id целевого кабинета, гео — страны из таргетинга, креатив — из названий объявлений. Так названия одинаковые, как бы ни был назван источник. Автоматический режим {auto} убран. Если макросу нечего подставить, он пропадает вместе со своим разделителем.",
+      "Смена сета: если в имени сета есть лишние слова (creo_V4 NEW NEW → creo_V5), меняется сам креатив — creo_V4 становится creo_V5 в названиях объявлений и групп, а через {creo} и в названии кампании.",
+    ],
+    en: [
+      "Campaign names are built from the template {agent}_{id}_{geo}_{creo}: the agent is the first word of the source name, then the target account's full id, the targeted countries and the creative from the ad names — the same names whatever the source was called. {auto} is gone. A macro with nothing to put in disappears with its separator.",
+      "Set switch: when a set's name has extra words (creo_V4 NEW NEW → creo_V5), the creative itself changes — creo_V4 becomes creo_V5 in ad and ad set names, and through {creo} in the campaign name.",
+    ],
+  },
+  {
     version: "151126b9",
     date: "2026-11-15",
     ru: [
-      "Смена сета: имя сета в названиях находится без учёта регистра и разделителей (Gina_V4, gina v4, GINA-V4, GinaV4), и даже если в имени сета есть лишнее слово. Под выбором сета видно, какие названия поменяются, а если ни одно — какие они сейчас.",
+      "Смена сета: имя сета в названиях находится без учёта регистра и разделителей (creo_V4, creo v4, CREO-V4, creoV4), и даже если в имени сета есть лишнее слово. Под выбором сета видно, какие названия поменяются, а если ни одно — какие они сейчас.",
     ],
     en: [
-      "Set switch: the set's name is found in names whatever the case and separators (Gina_V4, gina v4, GINA-V4, GinaV4), even when the set's name has an extra word. Under the set choice you see which names will change, or what they are when none will.",
+      "Set switch: the set's name is found in names whatever the case and separators (creo_V4, creo v4, CREO-V4, creoV4), even when the set's name has an extra word. Under the set choice you see which names will change, or what they are when none will.",
     ],
   },
   {
     version: "151126b8",
     date: "2026-11-15",
     ru: [
-      "Клонирование: в «Изменить при клонировании» можно выбрать другой сет того же каталога — например, Gina_V5 вместо Gina_V4. Где в названиях кампании, групп и объявлений стоит имя старого сета, будет имя нового.",
+      "Клонирование: в «Изменить при клонировании» можно выбрать другой сет того же каталога — например, creo_V5 вместо creo_V4. Где в названиях кампании, групп и объявлений стоит имя старого сета, будет имя нового.",
     ],
     en: [
-      "Clone: “Change on clone” can switch the campaign to another set of the same catalog — e.g. Gina_V5 instead of Gina_V4. Where campaign, ad set and ad names contain the old set's name, the new one is used.",
+      "Clone: “Change on clone” can switch the campaign to another set of the same catalog — e.g. creo_V5 instead of creo_V4. Where campaign, ad set and ad names contain the old set's name, the new one is used.",
     ],
   },
   {
@@ -128,10 +140,10 @@ export const CHANGELOG = [
     version: "141126b11",
     date: "2026-11-14",
     ru: [
-      "{creo}: если объявления отличаются только номером — диапазон (Shugairi_V1-3), иначе общая часть названия.",
+      "{creo}: если объявления отличаются только номером — диапазон (creo_V1-3), иначе общая часть названия.",
     ],
     en: [
-      "{creo}: ads that differ only in the number give a range (Shugairi_V1-3), otherwise the shared part of the name.",
+      "{creo}: ads that differ only in the number give a range (creo_V1-3), otherwise the shared part of the name.",
     ],
   },
   {

@@ -1,4 +1,5 @@
 import { deepClone } from "../utils/object.mjs";
+import { DEFAULT_NAME_TEMPLATE } from "./name-template.mjs";
 import {
   getPackageProductSetById,
   getReferencedProductSetIds,
@@ -19,8 +20,8 @@ function separatorsOf(text) {
 }
 
 /**
- * The new name written the way the found one is: "gina v4" becomes
- * "gina v5", "GinaV4" becomes "GinaV5". Written like the set's own name,
+ * The new name written the way the found one is: "creo v4" becomes
+ * "creo v5", "CreoV4" becomes "CreoV5". Written like the set's own name,
  * the new name goes in as it is.
  */
 function styled(found, from, replacement) {
@@ -48,9 +49,9 @@ function styled(found, from, replacement) {
 }
 
 /**
- * Replaces a set's name where it stands as a whole word: "Gina_V4" in
- * "VD47AU Gina_V4", "PEAK_1840_AU_Gina_V4", "gina v4", "GINA-V4" or
- * "GinaV4", but not inside "Gina_V45". Separators and letter case may
+ * Replaces a set's name where it stands as a whole word: "creo_V4" in
+ * "AGENT_1840AU creo_V4", "AGENT_1840_AU_creo_V4", "creo v4", "CREO-V4" or
+ * "creoV4", but not inside "creo_V45". Separators and letter case may
  * differ; the new name follows the style of the one it replaces.
  */
 export function renameSetToken(text, from, to) {
@@ -69,53 +70,73 @@ export function renameSetToken(text, from, to) {
   );
 }
 
-/**
- * The part of a set's name that changed, widened to whole words: from
- * "Gina_V4 AU" to "Gina_V5 AU" it is "Gina_V4" → "Gina_V5", which is what
- * ad names carry when the set has an extra word.
- */
-export function changedCore(from, to) {
-  const a = String(from || "");
-  const b = String(to || "");
-  let start = 0;
-  while (start < a.length && start < b.length && a[start] === b[start])
-    start += 1;
-  let end = 0;
-  while (
-    end < a.length - start &&
-    end < b.length - start &&
-    a[a.length - 1 - end] === b[b.length - 1 - end]
-  ) {
-    end += 1;
-  }
-  const isBreak = (char) => /[\s|/\\,;:()[\]{}]/.test(char || "");
-  let left = start;
-  while (left > 0 && !isBreak(a[left - 1])) left -= 1;
-  let rightA = a.length - end;
-  while (rightA < a.length && !isBreak(a[rightA])) rightA += 1;
-  let rightB = b.length - end;
-  while (rightB < b.length && !isBreak(b[rightB])) rightB += 1;
-  return {
-    from: a.slice(left, rightA).trim(),
-    to: b.slice(left, rightB).trim(),
-  };
+const WORD_BREAKS = /[\s|/\\,;:()[\]{}]+/;
+
+function wordsOf(name) {
+  return String(name || "")
+    .split(WORD_BREAKS)
+    .filter(Boolean);
 }
 
-/** The renames to try for one set: its whole name, then the part that changed. */
+/** A word without its separators and letter case: "creo_V4" is "creov4". */
+function plain(word) {
+  return word.toLowerCase().replace(/[_.-]+/g, "");
+}
+
+/** A word with its numbers blanked: "creo_V4" and "Creo-V12" share "creov#". */
+function stemOf(word) {
+  return plain(word.replace(/\d+/g, "#"));
+}
+
+const hasLetter = (word) => /\p{L}/u.test(word);
+
+/**
+ * The renames to try for one set. Sets are named after the creative, but a
+ * set's name may carry more words than the names of the ads and campaigns:
+ * "creo_V4 NEW NEW" for ads named "creo_V4". So besides the whole name, a
+ * word of the old name is paired with the word of the new name that differs
+ * from it only in its numbers — "creo_V4" with "creo_V5" — and that pair
+ * renames the names that carry the creative alone. Words both names share
+ * ("AU") are left alone, and so are bare numbers.
+ */
 export function renamePairs(fromName, toName) {
-  if (!fromName || !toName || fromName === toName) return [];
-  const pairs = [{ from: fromName, to: toName }];
-  const core = changedCore(fromName, toName);
-  if (core.from && core.to && core.from !== core.to && core.from !== fromName) {
-    pairs.push(core);
+  const from = String(fromName || "").trim();
+  const to = String(toName || "").trim();
+  if (!from || !to || from === to) return [];
+  const whole = { from, to };
+  const oldWords = wordsOf(from);
+  const newWords = wordsOf(to);
+  if (oldWords.length === 1 && newWords.length === 1) return [whole];
+  const shared = (word, words) =>
+    words.some((other) => plain(other) === plain(word));
+  const removed = oldWords.filter(
+    (word) => hasLetter(word) && !shared(word, newWords),
+  );
+  const added = newWords.filter(
+    (word) => hasLetter(word) && !shared(word, oldWords),
+  );
+  const words = [];
+  for (const word of removed) {
+    const match = added.find((other) => stemOf(other) === stemOf(word));
+    if (match && !words.some((pair) => plain(pair.from) === plain(word))) {
+      words.push({ from: word, to: match, core: true });
+    }
   }
-  return pairs;
+  if (!words.length && removed.length === 1 && added.length === 1) {
+    words.push({ from: removed[0], to: added[0], core: true });
+  }
+  // The whole name goes first: where a name carries all of it, all of it
+  // changes. A one-word old name with a longer new one would bring the new
+  // set's extra words into the names, so there only the words change.
+  const pairs = oldWords.length > 1 ? [whole] : [];
+  pairs.push(...words);
+  return pairs.length ? pairs : [whole];
 }
 
 /**
  * The product sets the campaign uses, each with the other sets of its
  * catalog to choose from. The export keeps every set of the source catalog,
- * so a set made after the campaign (Gina_V5 next to Gina_V4) is offered too.
+ * so a set made after the campaign (creo_V5 next to creo_V4) is offered too.
  */
 export function productSetChoices(packageData) {
   if (!packageData) return [];
@@ -201,9 +222,11 @@ export function swapProductSets(packageData, swaps) {
     const named = renameField(creative, "name");
     changes.creatives += renameField(creative?.raw, "name") || named ? 1 : 0;
   }
-  // The pairs that matched come first: they are the ones worth showing.
-  renamed.sort((a, b) => used.has(b) - used.has(a));
-  return { packageData: copy, renamed, changes };
+  return {
+    packageData: copy,
+    renamed: renamed.map((pair) => ({ ...pair, used: used.has(pair) })),
+    changes,
+  };
 }
 
 /**
@@ -258,9 +281,21 @@ export function setRenameSummary(state, t) {
   const base = state.massSetBase;
   const { changes, renamed } = report;
   if (!renamed.length) return t("overrides.setSameName");
-  const [first] = renamed;
+  // The pair that renamed something; else the creative's own words, which
+  // are what names usually carry.
+  const first =
+    renamed.find((pair) => pair.used) ||
+    renamed.find((pair) => pair.core) ||
+    renamed[0];
+  // The clone's campaign name comes from the template: it changes with the
+  // ads through {creo}, with the source name through {source}.
+  const template =
+    String(state.massNameTemplate || "").trim() || DEFAULT_NAME_TEMPLATE;
+  const campaign =
+    (changes?.ads > 0 && template.includes("{creo}")) ||
+    (changes?.campaign && /\{(?:source|auto|\d+)\}/.test(template));
   const parts = [];
-  if (changes?.campaign) parts.push(t("overrides.setCampaign"));
+  if (campaign) parts.push(t("overrides.setCampaign"));
   if (changes?.adsets)
     parts.push(t("overrides.setAdsets", { n: changes.adsets }));
   if (changes?.ads) parts.push(t("overrides.setAds", { n: changes.ads }));
