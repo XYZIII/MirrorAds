@@ -312,6 +312,41 @@ test("a new build: a fresh check brings its key, and only the new pieces are rea
   );
 });
 
+test("after a start the gate looks for a new build: it is announced, and the next click runs it", async () => {
+  const site = await world();
+  site.publish("161126b1");
+  const first = await clickBookmark({
+    facebook: site.facebook,
+    bookmark: site.generic(),
+  });
+  site.publish("161126b2");
+  // Two minutes later: the loader's own 20-minute wait has not passed.
+  const storage = {
+    ...first.storage,
+    "mirrorads.loader.refresh.v1": String(Date.now() - 2 * 60 * 1000),
+  };
+  const second = await clickBookmark({
+    facebook: site.facebook,
+    bookmark: site.generic(),
+    storage,
+  });
+  assert.deepEqual(second.ran, ["161126b1"]);
+  const note = second.window.document.getElementById("mirrorads-update");
+  assert.ok(note, "the new build is announced");
+  assert.match(note.shadowRoot.textContent, /161126b2/);
+  const third = await clickBookmark({
+    facebook: site.facebook,
+    bookmark: site.generic(),
+    storage: second.storage,
+  });
+  assert.deepEqual(third.ran, ["161126b2"]);
+  assert.equal(
+    third.window.document.getElementById("mirrorads-update"),
+    null,
+    "nothing to announce when the build is current",
+  );
+});
+
 test("a saved pass naming pieces that are gone asks the server again once", async () => {
   const site = await world();
   site.publish("161126b1");

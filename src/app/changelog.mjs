@@ -5,6 +5,16 @@
  */
 export const CHANGELOG = [
   {
+    version: "151126b7",
+    date: "2026-11-15",
+    ru: [
+      "Обновления приходят быстрее: после запуска MirrorAds сам проверяет, не вышла ли новая версия, и подсказывает внизу слева — достаточно нажать закладку ещё раз.",
+    ],
+    en: [
+      "Updates arrive faster: after starting, MirrorAds checks for a new version and says so at the bottom left — just click the bookmark again.",
+    ],
+  },
+  {
     version: "151126b6",
     date: "2026-11-15",
     ru: [

@@ -128,6 +128,7 @@ export async function clickBookmark({
     await settle(false);
   }
   await window.__MirrorAdsGate?.refresh;
+  await window.__MirrorAdsGate?.update;
   const saved = {};
   for (let i = 0; i < window.localStorage.length; i += 1) {
     const key = window.localStorage.key(i);

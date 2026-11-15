@@ -78,6 +78,8 @@
       stale: "Facebook ещё не обновил части скрипта",
       broken: "сохранённая копия скрипта повреждена, нажмите закладку ещё раз",
       not_started: "не запустился",
+      update:
+        "Вышла новая версия MirrorAds {v}. Нажмите закладку ещё раз, чтобы обновить.",
     },
     en: {
       need_key: "A licence key is needed",
@@ -110,6 +112,7 @@
       broken:
         "the saved copy of the script is damaged, click the bookmark again",
       not_started: "did not start",
+      update: "MirrorAds {v} is out. Click the bookmark again to update.",
     },
   };
   const t = (key) => TEXT[lang][key] ?? TEXT.en[key] ?? key;
@@ -816,6 +819,58 @@
     });
   }
 
+  /* ---------------- updates ---------------- */
+
+  // Shared with the loader, which re-reads the manifest only every 20 minutes.
+  const REFRESH_KEY = "mirrorads.loader.refresh.v1";
+
+  /**
+   * After a start, asks Facebook to re-read the manifest (at most once a
+   * minute), so the next click already finds a new build, and says so when
+   * one is out.
+   */
+  async function checkForUpdate(running) {
+    try {
+      const last = Number(localStorage.getItem(REFRESH_KEY)) || 0;
+      if (Date.now() - last < 60 * 1000) return;
+      localStorage.setItem(REFRESH_KEY, String(Date.now()));
+    } catch (_error) {
+      return;
+    }
+    const manifestUrl = `${settings.base}/mirrorads/latest/manifest`;
+    const answer = await scrape(manifestUrl);
+    const id = answer?.og_object?.id || (await lookup(manifestUrl));
+    if (!id) return;
+    const page = await readObject(id);
+    const manifest = JSON.parse(
+      decoder.decode(bytesFromBase64(page?.description, false)),
+    );
+    if (compareBuilds(manifest?.version, running) > 0)
+      showUpdate(manifest.version);
+  }
+
+  /** A small note over Ads Manager: a new build is one click away. */
+  function showUpdate(version) {
+    document.getElementById("mirrorads-update")?.remove();
+    const host = document.createElement("div");
+    host.id = "mirrorads-update";
+    host.style.cssText =
+      "position:fixed;left:24px;bottom:24px;z-index:2147483646;";
+    const shadow = host.attachShadow({ mode: "open" });
+    shadow.innerHTML = `<style>
+      :host { all: initial; }
+      button { display: flex; align-items: center; gap: 10px; max-width: 360px; padding: 12px 16px; border: 0; border-radius: 16px; background: #111827; color: #fff; font: 600 13px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; text-align: left; box-shadow: 0 16px 40px rgba(17,24,39,.35); cursor: pointer; }
+      i { flex: 0 0 auto; width: 10px; height: 10px; border-radius: 50%; background: #b4f461; }
+    </style><button type="button" title="${escapeHtml(t("close"))}"><i></i><span>${escapeHtml(
+      t("update").replace("{v}", version),
+    )}</span></button>`;
+    shadow
+      .querySelector("button")
+      .addEventListener("click", () => host.remove());
+    document.documentElement.appendChild(host);
+    setTimeout(() => host.remove(), 20000);
+  }
+
   /* ---------------- start ---------------- */
 
   async function start() {
@@ -861,6 +916,9 @@
         window.__MirrorAdsLicense = describe(state, key);
         await execute(source, state.build);
         gate.build = state.build;
+        gate.update = checkForUpdate(state.build).catch((error) =>
+          console.warn(tag, `Проверка обновления не удалась: ${error.message}`),
+        );
         console.log(
           tag,
           `запущена сборка ${state.build} (${gate.source}, ${state.mode === "key" ? `ключ MA-${key.id}` : "без ключа"}).`,
