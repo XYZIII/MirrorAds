@@ -368,6 +368,9 @@ export class MassCloneView {
     if (dom.cloneCatalogHead) {
       dom.cloneCatalogHead.classList.toggle("ma-hidden", !catalogColumn);
     }
+    dom.root
+      ?.querySelector("[data-bulk-catalog-wrap]")
+      ?.classList.toggle("ma-hidden", !catalogColumn);
     const columns = 7 + (catalogColumn ? 1 : 0);
     if (!accounts.length) {
       body.innerHTML = `<tr><td colspan="${columns}" class="ma-empty">${escapeHtml(
@@ -710,6 +713,15 @@ export class MassCloneView {
       ].filter(Boolean);
       dom.cloneTargetsNote.textContent = notes.join(" ");
       dom.cloneTargetsNote.classList.toggle("ma-hidden", !notes.length);
+    }
+    const bulkLabel = dom.root?.querySelector("[data-bulk-label]");
+    if (bulkLabel) {
+      const picked = this.usableAccounts().filter(
+        (account) => state.massTargets?.[String(account.id)]?.selected,
+      ).length;
+      bulkLabel.textContent = picked
+        ? t("bulk.forSelected", { n: picked })
+        : t("bulk.forListed", { n: total });
     }
     if (dom.cloneMaster) {
       dom.cloneMaster.checked = total > 0 && count === total;

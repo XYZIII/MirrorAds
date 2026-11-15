@@ -226,6 +226,12 @@ export function buildDialogStyles(A) {
       ${A} .ma-chip.ma-camps-none { background: #e3f6cf; color: #1f6a10; }
       ${A} .ma-chip.ma-camps-some { background: #fff1d0; color: #92590a; }
       ${A} .ma-chip.ma-camps-wait { color: var(--ma-faint); }
+      ${A} .ma-bulk { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 10px; }
+      ${A} .ma-bulk-label { font-size: 12px; font-weight: 600; color: var(--ma-muted); white-space: nowrap; }
+      ${A} .ma-bulk-pick { flex: 1 1 140px; max-width: 220px; min-height: 32px; font-size: 12px; }
+      ${A} .ma-bulk-cat { display: contents; }
+      ${A} .ma-bulk-cat.ma-hidden { display: none; }
+      ${A} .ma-bulk-note { flex: 1 1 100%; font-size: 12px; line-height: 1.5; color: var(--ma-ink); }
       /* ---- licence ---- */
       ${A} .ma-menu .ma-license { margin: 4px 0; padding: 9px 10px; border-radius: 10px; background: var(--ma-soft); font-size: 12px; }
       ${A} .ma-license-line { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }

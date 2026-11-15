@@ -5,6 +5,16 @@
  */
 export const CHANGELOG = [
   {
+    version: "151126b6",
+    date: "2026-11-15",
+    ru: [
+      "Клонирование: строка «Для выбранных» над списком — страница, пиксель и каталог ставятся сразу во все выбранные кабинеты. Если где-то такой страницы или пикселя нет, покажет, в каких кабинетах.",
+    ],
+    en: [
+      "Clone: the “For the selected” row above the list sets the page, pixel and catalog in every selected account at once, and names the accounts that do not have that page or pixel.",
+    ],
+  },
+  {
     version: "151126b5",
     date: "2026-11-15",
     ru: [

@@ -1,5 +1,6 @@
 import { getSourceCatalogsFromPackage } from "../domain/package.mjs";
 import { AccountPicks } from "./account-picks.mjs";
+import { BulkPicks } from "./bulk-picks.mjs";
 
 const TARGET_CONCURRENCY = 4;
 
@@ -14,6 +15,7 @@ export class MassCloneController {
     this.stopMassClone = this.stopMassClone.bind(this);
     this.resetRun = this.resetRun.bind(this);
     this.picks = new AccountPicks(dependencies);
+    this.bulk = new BulkPicks(dependencies);
   }
 
   /** The accounts selected for the next run (their campaigns change with it). */
@@ -304,6 +306,7 @@ export class MassCloneController {
     if (this.boundRoot === root) return;
     this.boundRoot = root;
     this.picks.attach(root);
+    this.bulk.attach(root);
     // The "change on clone" strip lives in the footer, outside the list.
     root.addEventListener("input", (event) => {
       const key = event.target?.dataset?.override;
