@@ -92,15 +92,21 @@ test("the built pages: a manifest for the gate, the script in encrypted pieces t
     (_, index) =>
       `mirrorads/latest/og/main-${main.sha.slice(0, 12)}-${String(index + 1).padStart(3, "0")}.html`,
   );
-  const text = names
-    .map((name) => {
-      assert.ok(description(built.files[name]).length <= 350000);
-      return description(built.files[name]);
-    })
-    .join("");
+  const texts = names.map((name) => description(built.files[name]));
   assert.ok(main.parts >= 2, "a real script needs several pieces");
-  assert.equal(createHash("sha256").update(text).digest("hex"), main.sha);
-  const sealed = Buffer.from(text, "base64");
+  assert.deepEqual(
+    texts.map((text) => text.length),
+    main.lengths,
+  );
+  assert.ok(
+    texts.every(
+      (text) => text.length <= 350000 && /^[A-Za-z0-9_-]+$/.test(text),
+    ),
+    "URL-safe letters only, no padding",
+  );
+  const sealed = Buffer.from(texts.join(""), "base64url");
+  assert.equal(sealed.length, main.size);
+  assert.equal(createHash("sha256").update(sealed).digest("hex"), main.sha);
   const decipher = createDecipheriv(
     "aes-256-gcm",
     Buffer.from(contentKey, "base64url"),
@@ -168,6 +174,56 @@ test("a damaged copy at Facebook is never run: the pieces are read again", async
   assert.ok(
     facebook.scraped.some((url) => url.includes("/og/main-")),
     "the script pieces were read again",
+  );
+});
+
+/** Facebook's copies, changed the way Facebook may tidy a description. */
+function tidying(facebook, change) {
+  return {
+    fetch: async (url, init) => {
+      const response = await facebook.fetch(url, init);
+      if (new URL(url).searchParams.has("id")) return response;
+      const body = JSON.parse(await response.text());
+      if (typeof body.description === "string") {
+        body.description = change(body.description, body.title || "");
+      }
+      return { ok: true, status: 200, text: async () => JSON.stringify(body) };
+    },
+  };
+}
+
+test("Facebook tidying the text (no padding, line breaks) does not stop the script", async () => {
+  for (const build of ["141126b13", "141126b14", "141126b15"]) {
+    // Script sizes differ by build, so each kind of padding gets its turn.
+    const { facebook, bookmark } = await world(build);
+    const tidy = tidying(facebook, (text) =>
+      text.replace(/=+$/, "").replace(/(.{4000})/g, "$1\n"),
+    );
+    const result = await clickBookmark({ facebook: tidy, bookmark });
+    assert.deepEqual(result.alerts, []);
+    assert.deepEqual(result.ran, [build]);
+  }
+});
+
+test("a piece Facebook cuts short is named with its size in the message", async () => {
+  const { facebook, bookmark, built } = await world();
+  const cut = tidying(facebook, (text, title) =>
+    / part 2\//.test(title) ? text.slice(0, -1000) : text,
+  );
+  let shown = "";
+  const result = await clickBookmark({
+    facebook: cut,
+    bookmark,
+    interact: async ({ dialog }) => {
+      shown = dialog().querySelector("p").textContent;
+      dialog().querySelector('[data-act="close"]').click();
+    },
+  });
+  assert.deepEqual(result.ran, []);
+  const [first, second] = built.release.main.lengths;
+  assert.ok(
+    shown.includes(`${first}/${first}, ${second - 1000}/${second}`),
+    shown,
   );
 });
 

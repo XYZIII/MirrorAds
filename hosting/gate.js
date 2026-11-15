@@ -521,6 +521,18 @@
 
   /* ---------------- the script ---------------- */
 
+  async function sha256Bytes(bytes) {
+    const digest = await crypto.subtle.digest("SHA-256", bytes);
+    return Array.from(new Uint8Array(digest))
+      .map((byte) => byte.toString(16).padStart(2, "0"))
+      .join("");
+  }
+
+  /**
+   * The encrypted script from Facebook's copies of its pieces. Facebook may
+   * tidy a description (spaces, "=" padding), so only the letters of the
+   * encoding count, and the checksum is taken over the decoded bytes.
+   */
   async function downloadMain(main) {
     const urls = Array.from(
       { length: main.parts },
@@ -535,9 +547,21 @@
           await sleep(settings.retryDelayMs);
         }
         const pages = await Promise.all(urls.map((url) => readPage(url)));
-        const text = pages.map((page) => page?.description || "").join("");
-        if ((await sha256Hex(text)) === main.sha) return text;
-        lastError = new Error(t("stale"));
+        const texts = pages.map((page) =>
+          String(page?.description || "").replace(/[^A-Za-z0-9+/_-]/g, ""),
+        );
+        const text = texts.join("");
+        const bytes = bytesFromBase64(text, true);
+        if ((await sha256Bytes(bytes)) === main.sha) return { bytes, text };
+        // What arrived, piece by piece, against what was published.
+        const sizes = texts
+          .map(
+            (part, index) => `${part.length}/${main.lengths?.[index] ?? "?"}`,
+          )
+          .join(", ");
+        lastError = new Error(
+          `${t("stale")} [${sizes}; ${bytes.length}/${main.size ?? "?"}]`,
+        );
       } catch (error) {
         lastError = error;
       }
@@ -545,7 +569,7 @@
     throw lastError;
   }
 
-  async function decrypt(text, state) {
+  async function decrypt(bytes, state) {
     const key = await crypto.subtle.importKey(
       "raw",
       bytesFromBase64(state.ck, true),
@@ -556,7 +580,7 @@
     const plain = await crypto.subtle.decrypt(
       { name: "AES-GCM", iv: bytesFromBase64(state.main.iv, true) },
       key,
-      bytesFromBase64(text, false),
+      bytes,
     );
     return decoder.decode(plain);
   }
@@ -566,17 +590,17 @@
     const cached = readJson(settings.appStore);
     if (cached?.sha === state.main.sha && typeof cached.data === "string") {
       try {
-        const source = await decrypt(cached.data, state);
+        const source = await decrypt(bytesFromBase64(cached.data, true), state);
         gate.source = "cache";
         return source;
       } catch (_error) {
         forget(settings.appStore);
       }
     }
-    const data = await downloadMain(state.main);
+    const { bytes, text } = await downloadMain(state.main);
     let source;
     try {
-      source = await decrypt(data, state);
+      source = await decrypt(bytes, state);
     } catch (_error) {
       forget(settings.stateStore);
       throw new Error(t("broken"));
@@ -584,7 +608,7 @@
     writeJson(settings.appStore, {
       build: state.build,
       sha: state.main.sha,
-      data,
+      data: text,
       savedAt: new Date().toISOString(),
     });
     gate.source = "remote";

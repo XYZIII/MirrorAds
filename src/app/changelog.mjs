@@ -5,6 +5,16 @@
  */
 export const CHANGELOG = [
   {
+    version: "151126b3",
+    date: "2026-11-15",
+    ru: [
+      "Исправлен запуск после прошлого обновления: скрипт не загружался с ошибкой «Facebook ещё не обновил части скрипта».",
+    ],
+    en: [
+      "Fixed the start after the previous update: the script did not load, saying Facebook had not refreshed its pieces.",
+    ],
+  },
+  {
     version: "151126b2",
     date: "2026-11-15",
     ru: [

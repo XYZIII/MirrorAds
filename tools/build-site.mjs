@@ -90,12 +90,11 @@ function split(text) {
 /** The script encrypted with a fresh key: only a passed licence check opens it. */
 export function encryptScript(source, contentKey, iv) {
   const cipher = createCipheriv("aes-256-gcm", contentKey, iv);
-  const sealed = Buffer.concat([
+  return Buffer.concat([
     cipher.update(source, "utf8"),
     cipher.final(),
     cipher.getAuthTag(),
   ]);
-  return sealed.toString("base64");
 }
 
 /** Everything the site consists of, as `{ "relative/path": content }`. */
@@ -120,8 +119,12 @@ export function buildSite({
 
   // The script: encrypted; its pieces are named by their checksum, so
   // Facebook never holds an old copy under a current name.
-  const mainText = encryptScript(source, contentKey, iv);
-  const mainSha = sha256(mainText);
+  // URL-safe base64 without "=" padding: Facebook tidies descriptions and
+  // drops trailing "=", so only letters that survive it are published. The
+  // checksum covers the bytes, not their spelling.
+  const sealed = encryptScript(source, contentKey, iv);
+  const mainText = sealed.toString("base64url");
+  const mainSha = sha256(sealed);
   const mainParts = split(mainText);
   const mainName = (index) => `main-${mainSha.slice(0, 12)}-${pad(index)}`;
 
@@ -205,7 +208,13 @@ export function buildSite({
   const release = {
     version: build,
     contentKey: base64Url(contentKey),
-    main: { sha: mainSha, iv: base64Url(iv), parts: mainParts.length },
+    main: {
+      sha: mainSha,
+      iv: base64Url(iv),
+      parts: mainParts.length,
+      size: sealed.length,
+      lengths: mainParts.map((part) => part.length),
+    },
   };
   return {
     files,
