@@ -244,6 +244,11 @@ function createService({
   meta,
   failFor = "",
   campaigns = {},
+  rules = {},
+  adList = {},
+  adDaily = {},
+  adHourly = {},
+  adFail = "",
 }) {
   const calls = [];
   const service = new ReportService({
@@ -267,6 +272,17 @@ function createService({
       graphGetAll: async (path, query) => {
         calls.push({ path, hourly: Boolean(query.breakdowns), query });
         const id = path.split("/")[0].replace("act_", "");
+        if (path.endsWith("/adrules_library")) {
+          if (rules === "fail") throw new Error("(#200) rules refused");
+          return rules[id] || [];
+        }
+        if (path.endsWith("/ads")) {
+          if (adFail === id) throw new Error("(#10) ads refused");
+          return adList[id] || [];
+        }
+        if (query.level === "ad") {
+          return (query.breakdowns ? adHourly : adDaily)[id] || [];
+        }
         return query.breakdowns ? hourlyRows[id] || [] : dailyRows[id] || [];
       },
     },
@@ -600,12 +616,83 @@ test("campaign statuses come with the account, in one request", async () => {
     viewerZone: KYIV,
     nowMs: NOW,
   });
-  // One account read and one insights read: nothing asks for campaigns alone.
-  assert.equal(calls.length, 2);
+  // One account read, one insights read and the rules: nothing asks for
+  // campaigns alone.
+  assert.equal(calls.length, 3);
   assert.equal(
     calls.some((call) => String(call.path || "").endsWith("/campaigns")),
     false,
   );
+  assert.equal(
+    calls.filter((call) => String(call.path || "").endsWith("/adrules_library"))
+      .length,
+    1,
+  );
+});
+
+test("each account's rules come with its line, described in its currency", async () => {
+  const rule = (name, status, spent) => ({
+    id: name,
+    name,
+    status,
+    evaluation_spec: {
+      filters: [{ field: "spent", operator: "GREATER_THAN", value: spent }],
+    },
+    execution_spec: { execution_type: "PAUSE" },
+    schedule_spec: { schedule_type: "SEMI_HOURLY" },
+  });
+  const { service } = createService({
+    meta: META,
+    hourlyRows: {},
+    dailyRows: {},
+    rules: {
+      111: [
+        rule("Stop", "ENABLED", 2000),
+        rule("Old", "DISABLED", 500),
+        rule("Gone", "DELETED", 1),
+      ],
+      222: [],
+    },
+  });
+  const report = await service.loadReport({
+    accounts: ACCOUNTS,
+    period: "today",
+    zoneMode: "account",
+    viewerZone: KYIV,
+    nowMs: NOW,
+  });
+  const rules = (name) => report.rows.find((row) => row.name === name).rules;
+  assert.deepEqual(
+    rules("Bangkok").map((item) => [
+      item.name,
+      item.enabled,
+      item.conditions[0].value,
+    ]),
+    [
+      ["Stop", true, 20],
+      ["Old", false, 5],
+    ],
+  );
+  assert.deepEqual(rules("Kyiv"), []);
+  assert.deepEqual(rules("LA"), []);
+
+  // Rules that cannot be read are unknown, and the line is still there.
+  const { service: refused } = createService({
+    meta: META,
+    hourlyRows: {},
+    dailyRows: { 111: [{ spend: "5" }] },
+    rules: "fail",
+  });
+  const second = await refused.loadReport({
+    accounts: [ACCOUNTS[0]],
+    period: "today",
+    zoneMode: "account",
+    viewerZone: KYIV,
+    nowMs: NOW,
+  });
+  assert.equal(second.rows[0].rules, null);
+  assert.equal(second.rows[0].spend, 5);
+  assert.equal(second.rows[0].error, "");
 });
 
 test("an account is still read when Meta refuses its campaigns", async () => {
@@ -627,4 +714,60 @@ test("an account is still read when Meta refuses its campaigns", async () => {
   assert.equal(row.spend, 12);
   assert.equal(row.health, "live");
   assert.equal(row.activeCampaigns, null);
+});
+
+test("ads for the groups are read on the same clock as their account lines", async () => {
+  const { service, calls } = createService({
+    meta: META,
+    hourlyRows: {},
+    dailyRows: { 111: [{ spend: "30" }], 222: [{ spend: "9" }] },
+    adList: {
+      111: [
+        {
+          id: "a1",
+          name: "creo_V4",
+          effective_status: "ACTIVE",
+          campaign: { name: "AGENT_111_TH_creo_V4" },
+          adset: { targeting: { geo_locations: { countries: ["TH"] } } },
+        },
+      ],
+    },
+    adDaily: {
+      111: [
+        { ad_id: "a1", ad_name: "creo_V4", spend: "20" },
+        { ad_id: "a2", ad_name: "promo_V1", spend: "10" },
+      ],
+    },
+    adFail: "222",
+  });
+  const report = await service.loadReport({
+    accounts: ACCOUNTS,
+    period: "today",
+    zoneMode: "account",
+    viewerZone: KYIV,
+    nowMs: NOW,
+  });
+  const progress = [];
+  const ads = await service.loadReportAds(report, report.rows, (done, total) =>
+    progress.push(`${done}/${total}`),
+  );
+  assert.deepEqual(
+    ads[111].ads.map((ad) => [ad.name, ad.running, ad.countries, ad.spend]),
+    [
+      ["creo_V4", true, ["TH"], 20],
+      ["promo_V1", false, [], 10],
+    ],
+  );
+  assert.match(ads[222].error, /ads refused/);
+  assert.deepEqual(ads[333].ads, []);
+  assert.equal(progress.at(-1), "3/3");
+  // The same account dates as the line: Bangkok's own today.
+  const adInsights = calls.find(
+    (call) => call.path === "act_111/insights" && call.query.level === "ad",
+  );
+  assert.deepEqual(JSON.parse(adInsights.query.time_range), {
+    since: "2026-11-14",
+    until: "2026-11-14",
+  });
+  assert.equal(adInsights.hourly, false);
 });

@@ -4,6 +4,8 @@
  * (execution) and when (schedule).
  */
 
+import { currencyMinorUnits } from "./clone-overrides.mjs";
+
 /** Filter fields that name concrete objects of the source account. */
 const OBJECT_ID_FIELD =
   /^(id|(campaign|adset|ad|adgroup)\.id|campaign_group\.id)$/;
@@ -185,4 +187,79 @@ export function convertRuleMoney(body, factor) {
     }
   }
   return converted;
+}
+
+const SETTING_FIELDS = new Set([
+  "entity_type",
+  "time_preset",
+  "attribution_window",
+]);
+
+/** An amount in the API's units (cents for USD) in whole account money. */
+function wholeMoney(value, units) {
+  if (Array.isArray(value)) return value.map((item) => wholeMoney(item, units));
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && value !== "" && value !== null
+    ? numeric / units
+    : value;
+}
+
+/**
+ * What a rule checks, does and when, for a tooltip. Money conditions and a
+ * budget change given in money are in the account's whole units: 2000
+ * cents of spend read as 20 USD. `currency` is the account's.
+ */
+export function describeRule(rule, currency = "") {
+  const units = currencyMinorUnits(currency);
+  const conditions = filters(rule)
+    .filter(
+      (item) =>
+        !SETTING_FIELDS.has(item?.field) &&
+        !OBJECT_ID_FIELD.test(item?.field || ""),
+    )
+    .map((item) => {
+      const money = isMoneyField(item?.field);
+      return {
+        field: String(item?.field || ""),
+        operator: String(item?.operator || "").toUpperCase(),
+        value: money ? wholeMoney(item?.value, units) : item?.value,
+        money,
+      };
+    });
+  const option = (rule?.execution_spec?.execution_options || []).find(
+    (item) => item?.field === "change_spec",
+  )?.value;
+  let change = null;
+  if (option && typeof option === "object") {
+    const unit = String(option.unit || "").toUpperCase();
+    const amount = Number(option.amount);
+    change = {
+      amount:
+        unit === "ACCOUNT_CURRENCY" && Number.isFinite(amount)
+          ? amount / units
+          : amount,
+      unit: unit === "ACCOUNT_CURRENCY" ? "money" : "percent",
+      limit: Number(option.limit) > 0 ? Number(option.limit) / units : null,
+    };
+  }
+  return {
+    ...summarizeRule(rule),
+    status: String(rule?.status || "").toUpperCase(),
+    preset: String(filterValue(rule, "time_preset") || "").toUpperCase(),
+    conditions,
+    change,
+    currency: String(currency || "").toUpperCase(),
+  };
+}
+
+/**
+ * Where an account stands with rules: "on" when at least one is switched
+ * on, "off" when all are off, "none" without any, "unknown" when they
+ * could not be read (`rules` is null).
+ */
+export function rulesState(rules) {
+  if (!Array.isArray(rules)) return { state: "unknown", on: 0, off: 0 };
+  const on = rules.filter((rule) => rule.enabled).length;
+  const off = rules.length - on;
+  return { state: on ? "on" : off ? "off" : "none", on, off };
 }

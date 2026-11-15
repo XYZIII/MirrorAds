@@ -1,4 +1,6 @@
+import { describeRule } from "../domain/ad-rules.mjs";
 import { normalizeAccountId } from "../domain/ids.mjs";
+import { summarizeAdRows } from "../domain/report-groups.mjs";
 import {
   classifyAccountStatus,
   countCampaigns,
@@ -14,9 +16,15 @@ import {
 // Campaign statuses ride along with the account fields: one request instead
 // of two per account.
 const ACCOUNT_FIELDS =
-  "currency,account_currency_ratio_to_usd,timezone_name,timezone_offset_hours_utc,account_status,disable_reason";
+  "currency,account_currency_ratio_to_usd,timezone_name,timezone_offset_hours_utc,account_status,disable_reason,created_time";
 const CAMPAIGN_FIELDS = "campaigns.limit(500){effective_status}";
 const INSIGHT_FIELDS = "spend,impressions,clicks,actions";
+const AD_INSIGHT_FIELDS = "ad_id,ad_name,adset_id,campaign_name,spend,actions";
+// Plain node expansions only: a sub-selection inside targeting is not
+// something every account's API answers.
+const AD_FIELDS = "name,effective_status,campaign{name},adset{targeting}";
+const RULE_FIELDS =
+  "id,name,status,evaluation_spec,execution_spec,schedule_spec";
 const HOURLY = "hourly_stats_aggregated_by_advertiser_time_zone";
 const CONCURRENCY = 8;
 
@@ -59,19 +67,40 @@ export class ReportService {
       health: classifyAccountStatus(row?.account_status),
       // Absent when Meta refuses the campaigns edge: unknown, not zero.
       campaigns: row?.campaigns ? countCampaigns(row.campaigns.data) : null,
+      createdTime: String(row?.created_time || ""),
     };
     this.accountMeta.set(accountId, meta);
     return meta;
   }
 
-  async fetchInsights(accountId, range, hourly) {
+  async fetchInsights(accountId, range, hourly, level = "account") {
     const { graphGetAll } = this.dependencies.graphClient;
     return graphGetAll(`act_${accountId}/insights`, {
-      level: "account",
-      fields: INSIGHT_FIELDS,
+      level,
+      fields: level === "ad" ? AD_INSIGHT_FIELDS : INSIGHT_FIELDS,
       time_range: JSON.stringify(range),
       ...(hourly ? { breakdowns: HOURLY, time_increment: 1, limit: 500 } : {}),
+      ...(level === "ad" && !hourly ? { limit: 500 } : {}),
     });
+  }
+
+  /**
+   * The automated rules of an account, or null when they cannot be read.
+   * Never throws: a report without rules is still a report.
+   */
+  async loadRules(accountId) {
+    const { graphGetAll } = this.dependencies.graphClient;
+    try {
+      const rules = await graphGetAll(`act_${accountId}/adrules_library`, {
+        fields: RULE_FIELDS,
+        limit: 200,
+      });
+      return (rules || []).filter(
+        (rule) => String(rule?.status || "").toUpperCase() !== "DELETED",
+      );
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -85,6 +114,12 @@ export class ReportService {
   ) {
     const accountId = normalizeAccountId(account.id);
     const base = { accountId, name: account.name || accountId };
+    // Rules do not depend on the period: they are read alongside.
+    const rulesRead = this.loadRules(accountId);
+    const describe = (rules, currency) =>
+      Array.isArray(rules)
+        ? rules.map((rule) => describeRule(rule, currency))
+        : null;
     try {
       const meta = await this.loadAccountMeta(accountId);
       const window = resolveWindow({
@@ -137,6 +172,8 @@ export class ReportService {
         health: meta.health,
         statusCode: meta.statusCode,
         disableReason: meta.disableReason,
+        createdTime: meta.createdTime,
+        rules: describe(await rulesRead, meta.currency),
         error: "",
       };
     } catch (error) {
@@ -162,6 +199,8 @@ export class ReportService {
           Number(account?.raw?.account_status ?? account?.account_status) ||
           null,
         disableReason: 0,
+        createdTime: "",
+        rules: describe(await rulesRead, ""),
         error: String(error?.message || error),
       };
     }
@@ -202,6 +241,99 @@ export class ReportService {
         (b.spendUsd ?? b.spend) - (a.spendUsd ?? a.spend) ||
         a.name.localeCompare(b.name),
     );
-    return { rows, total: totalReport(rows), nowMs, period, zoneMode };
+    return {
+      rows,
+      total: totalReport(rows),
+      nowMs,
+      period,
+      zoneMode,
+      custom: custom || null,
+      viewerZone,
+    };
+  }
+
+  /**
+   * One account's ads for the report's period, on the same clock as its
+   * line: each ad with its name, campaign, targeted countries, whether it
+   * runs now, and its spend, leads and purchases.
+   */
+  async loadAccountAds(row, report) {
+    const { graphGetAll } = this.dependencies.graphClient;
+    const accountId = row.accountId;
+    const meta = await this.loadAccountMeta(accountId);
+    const window = resolveWindow({
+      period: report.period,
+      custom: report.custom,
+      nowMs: report.nowMs,
+      zone: report.zoneMode === "viewer" ? report.viewerZone : meta.timeZone,
+      accountZone: meta.timeZone,
+    });
+    let insights = null;
+    // The line fell back to whole days: so do its ads, or they would not add up.
+    if (!window.wholeAccountDays && row.basis !== "account-fallback") {
+      const hourly = await this.fetchInsights(
+        accountId,
+        window.accountRange,
+        true,
+        "ad",
+      );
+      if (hourly.length) {
+        insights = filterHourlyRows(
+          hourly,
+          meta.timeZone,
+          window.startMs,
+          window.endMs,
+        );
+      }
+    }
+    if (!insights) {
+      insights = await this.fetchInsights(
+        accountId,
+        window.accountRange,
+        false,
+        "ad",
+      );
+    }
+    // Each ad carries its ad set's targeting: pages are kept small.
+    const ads = await graphGetAll(`act_${accountId}/ads`, {
+      fields: AD_FIELDS,
+      limit: 100,
+    });
+    return summarizeAdRows({
+      insights,
+      ads,
+      currency: meta.currency,
+      ratio: meta.ratio,
+      delivers: row.health === "live" || row.health === "unknown",
+    });
+  }
+
+  /**
+   * The ads of every account of a report, for groupings by creative, geo or
+   * agent. Returns { [accountId]: { ads } | { error } }; one failing account
+   * never stops the rest.
+   */
+  async loadReportAds(report, rows, onProgress) {
+    const queue = [...(rows || [])];
+    const result = {};
+    let done = 0;
+    const worker = async () => {
+      while (queue.length) {
+        const row = queue.shift();
+        try {
+          result[row.accountId] = {
+            ads: await this.loadAccountAds(row, report),
+          };
+        } catch (error) {
+          result[row.accountId] = { error: String(error?.message || error) };
+        }
+        done += 1;
+        onProgress?.(done, rows.length);
+      }
+    };
+    await Promise.all(
+      Array.from({ length: Math.min(CONCURRENCY, queue.length) }, worker),
+    );
+    return result;
   }
 }

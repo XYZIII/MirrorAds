@@ -5,6 +5,18 @@
  */
 export const CHANGELOG = [
   {
+    version: "151126b12",
+    date: "2026-11-15",
+    ru: [
+      "Отчёты → «Группы»: кабинеты собираются по креативу, гео, агенту, часовому поясу, статусу, кампаниям, автоправилам, валюте или возрасту кабинета. По каждой группе видно, сколько кабинетов запущено, расход и его долю, лиды и CPL, продажи и CPA. Группа раскрывается списком своих кабинетов, колонки сортируются.",
+      "Отчёты → «Кабинеты»: у каждого кабинета видны его автоправила — сколько включено, а при наведении какие именно, что делают и при каких условиях. Кнопка «Без правил» оставляет только кабинеты, где нет ни одного включённого правила.",
+    ],
+    en: [
+      "Reports → Groups: accounts gathered by creative, geo, agent, time zone, status, campaigns, rules, currency or account age. Each group shows how many accounts run, spend and its share, leads and CPL, purchases and CPA. A group opens into its accounts; columns sort.",
+      "Reports → Accounts: each account shows its automated rules — how many are on, and on hover which ones, what they do and when. The “No rules” button keeps only the accounts without a rule switched on.",
+    ],
+  },
+  {
     version: "151126b11",
     date: "2026-11-15",
     ru: [

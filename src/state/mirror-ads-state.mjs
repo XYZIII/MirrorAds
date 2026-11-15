@@ -99,6 +99,14 @@ export class MirrorAdsState {
     this.reportCamps = {};
     this.reportArm = "";
     this.reportEdit = "";
+    // "accounts" or "groups"; null until read from storage.
+    this.reportView = null;
+    this.reportGroupBy = null;
+    // null: the trait's own order; else { by, dir }.
+    this.reportGroupSort = null;
+    this.reportGroupOpen = {};
+    // Only the accounts without a rule switched on.
+    this.reportNoRules = false;
     this.rulesSource = "";
     this.rulesList = null;
     this.rulesLoading = false;

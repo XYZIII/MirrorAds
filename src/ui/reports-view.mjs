@@ -15,11 +15,15 @@ import { escapeHtml } from "../utils/string.mjs";
 import { t } from "./i18n.mjs";
 import { ICONS } from "./icons.mjs";
 import { ReportCampaigns } from "./report-campaigns.mjs";
+import { ReportGroups } from "./report-groups-view.mjs";
+import { rulesChip, withoutRules } from "./report-rules.mjs";
 
 const PERIODS = ["today", "yesterday", "last7", "custom"];
 const STATUSES = ["all", "live", "dead"];
 const ZONE_KEY = "mirrorads.report.zone";
 const ZONES = ["account", "viewer"];
+const VIEW_KEY = "mirrorads.report.view";
+const VIEWS = ["accounts", "groups"];
 
 const money = (value) =>
   value === null || value === undefined
@@ -50,6 +54,43 @@ export class ReportsView {
       render: () => this.render(),
       panel: () => this.panel,
     });
+    this.groups = new ReportGroups({
+      state: dependencies.state,
+      get reportService() {
+        return view.dependencies.reportService;
+      },
+      get logging() {
+        return view.dependencies.logging;
+      },
+      render: () => this.render(),
+    });
+  }
+
+  /** Accounts or Groups: the last one used, kept between visits. */
+  get view() {
+    const { state } = this.dependencies;
+    if (!VIEWS.includes(state.reportView)) {
+      let saved = "";
+      try {
+        saved = localStorage.getItem(VIEW_KEY) || "";
+      } catch {
+        saved = "";
+      }
+      state.reportView = VIEWS.includes(saved) ? saved : "accounts";
+    }
+    return state.reportView;
+  }
+
+  setView(view) {
+    const { state } = this.dependencies;
+    state.reportView = view;
+    try {
+      localStorage.setItem(VIEW_KEY, view);
+    } catch {
+      // The choice still holds for this session.
+    }
+    this.render();
+    this.groups.ensureAds();
   }
 
   get panel() {
@@ -133,12 +174,24 @@ export class ReportsView {
       const { state } = this.dependencies;
       const target = event.target.closest?.("[data-report]");
       if (!target || !this.panel?.contains(target)) return;
-      const [kind, value] = target.dataset.report.split(":");
+      // A group key may hold colons itself: only the first one separates.
+      const [kind, ...rest] = target.dataset.report.split(":");
+      const value = rest.join(":");
       if (kind === "act") {
         this.handleAction(value);
         return;
       }
+      if (kind === "view" && VIEWS.includes(value)) {
+        this.setView(value);
+        return;
+      }
+      if (kind === "norules") {
+        state.reportNoRules = !state.reportNoRules;
+        this.render();
+        return;
+      }
       if (this.campaigns.handle(kind, value)) return;
+      if (this.groups.handle(kind, value)) return;
       if (kind === "period" && PERIODS.includes(value)) {
         state.reportPeriod = value;
         // A custom period waits for its dates and the Show button.
@@ -164,6 +217,14 @@ export class ReportsView {
         state.reportShowEmpty = !state.reportShowEmpty;
         this.render();
       }
+    });
+    // Group lines open with the keyboard as well.
+    root.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      const line = event.target.closest?.('[data-report][role="button"]');
+      if (!line || !this.panel?.contains(line) || line !== event.target) return;
+      event.preventDefault();
+      line.click();
     });
     root.addEventListener("change", (event) => {
       const { state } = this.dependencies;
@@ -449,6 +510,8 @@ export class ReportsView {
       if (requestId === this.requestId) {
         state.reportLoading = false;
         this.render();
+        // Groups by creative, geo or agent read the new report's ads.
+        this.groups.ensureAds();
       }
     }
   }
@@ -514,10 +577,7 @@ export class ReportsView {
                 t("reports.stuck", { count: row.activeCampaigns }),
               )}</i>`
             : "";
-    const campaigns =
-      health || counts
-        ? `<div class="ma-rep-camps">${health}${counts}</div>`
-        : "";
+    const campaigns = `<div class="ma-rep-camps">${health}${counts}${rulesChip(row)}</div>`;
     const spendUsd =
       row.spendUsd === null && row.spend > 0 ? null : row.spendUsd;
     return `
@@ -613,6 +673,21 @@ export class ReportsView {
           ? `<div class="ma-rep-warn">${escapeHtml(state.reportError)}</div>`
           : ""
       }`;
+    const view = this.view;
+    const views = `<div class="ma-rep-views" role="tablist">${VIEWS.map(
+      (item) =>
+        `<button type="button" role="tab" aria-selected="${item === view}" class="${item === view ? "is-on" : ""}" data-always-enabled data-report="view:${item}">${ICONS[item]}<span>${escapeHtml(t(`reports.view.${item}`))}</span></button>`,
+    ).join("")}</div>`;
+    const filter = state.reportStatusFilter;
+    const rows = report ? filterReportRows(report.rows, filter) : [];
+    const bare = report && view === "accounts" ? withoutRules(rows).length : 0;
+    // Accounts without a rule switched on: the safety check of the list.
+    const rulesToggle =
+      report && view === "accounts"
+        ? `<button type="button" class="ma-rep-norules${state.reportNoRules ? " is-on" : ""}${bare ? " has-some" : ""}" data-always-enabled data-report="norules" title="${escapeHtml(
+            t("reports.rules.filterHint"),
+          )}">${ICONS.rules}<span>${escapeHtml(t("reports.rules.filter"))}</span><em>${bare}</em></button>`
+        : "";
     const statusFilter = `
       <div class="ma-rep-controls ma-rep-statusbar">
         <span>${escapeHtml(t("reports.statusLabel"))}</span>
@@ -628,19 +703,18 @@ export class ReportsView {
               }
             : null,
         )}
+        ${rulesToggle}
       </div>`;
     if (state.reportError && !report) {
-      panel.innerHTML = `${controls}<div class="ma-rep-empty">${escapeHtml(state.reportError)}</div>`;
+      panel.innerHTML = `${views}${controls}<div class="ma-rep-empty">${escapeHtml(state.reportError)}</div>`;
       return;
     }
     if (!report) {
-      panel.innerHTML = `${controls}<div class="ma-rep-empty">${escapeHtml(
+      panel.innerHTML = `${views}${controls}<div class="ma-rep-empty">${escapeHtml(
         state.reportLoading ? t("reports.loadingFirst") : t("reports.empty"),
       )}</div>`;
       return;
     }
-    const filter = state.reportStatusFilter;
-    const rows = filterReportRows(report.rows, filter);
     // The tiles add up what the status filter shows.
     const total = filter === "all" ? report.total : totalReport(rows);
     // An account whose campaigns are running matters even before it spends.
@@ -654,14 +728,14 @@ export class ReportsView {
               row.error ||
               (accountDelivers(row.health) && row.activeCampaigns > 0),
           );
-    const idle = rows.length - spent.length;
-    const visible = state.reportShowEmpty ? rows : spent;
+    const noRules = state.reportNoRules ? withoutRules(rows) : null;
+    const idle = noRules ? 0 : rows.length - spent.length;
+    const visible = noRules || (state.reportShowEmpty ? rows : spent);
     const tile = (label, value, sub = "") =>
       `<div class="ma-rep-tile"><span>${escapeHtml(label)}</span><b>${escapeHtml(value)}</b>${
         sub ? `<small>${escapeHtml(sub)}</small>` : ""
       }</div>`;
-    panel.innerHTML = `
-      ${controls}
+    const tiles = `
       <div class="ma-rep-tiles${state.reportLoading ? " ma-rep-stale" : ""}">
         ${tile(t("reports.spend"), money(total.spendUsd), `${t("reports.accountsSpending", { count: total.accounts })} · ${t("reports.activeTotal", { count: total.activeCampaigns })}`)}
         ${tile(t("reports.leads"), total.leadsKnown ? count(total.leads) : "—", total.leadsKnown ? `${t("reports.cpl")} ${cost(total.spendUsd, total.leads)}` : "")}
@@ -680,7 +754,13 @@ export class ReportsView {
         )
           ? `<div class="ma-rep-warn">${escapeHtml(t("reports.noConversions"))}</div>`
           : ""
-      }
+      }`;
+    if (view === "groups") {
+      panel.innerHTML = `${views}${controls}${tiles}${statusFilter}
+        <div class="${state.reportLoading ? "ma-rep-stale" : ""}">${this.groups.markup(report, rows)}</div>`;
+      return;
+    }
+    panel.innerHTML = `${views}${controls}${tiles}
       ${statusFilter}
       ${this.actionBar()}
       <div class="ma-rep-head">
@@ -699,7 +779,15 @@ export class ReportsView {
       <div class="ma-rep-list${state.reportLoading ? " ma-rep-stale" : ""}">
         ${
           visible.map((row) => this.rowMarkup(row, report.nowMs)).join("") ||
-          `<div class="ma-rep-empty">${escapeHtml(t(filter === "dead" ? "reports.noDead" : "reports.noSpend"))}</div>`
+          `<div class="ma-rep-empty">${escapeHtml(
+            t(
+              noRules
+                ? "reports.rules.allHave"
+                : filter === "dead"
+                  ? "reports.noDead"
+                  : "reports.noSpend",
+            ),
+          )}</div>`
         }
       </div>
       ${

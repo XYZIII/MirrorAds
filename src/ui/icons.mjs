@@ -25,4 +25,11 @@ export const ICONS = {
   ),
   minimize: icon('<path d="M6 18h12"/>'),
   close: icon('<path d="m6.5 6.5 11 11"/><path d="m17.5 6.5-11 11"/>'),
+  chevron: icon('<path d="m7 10 5 5 5-5"/>'),
+  accounts: icon(
+    '<rect x="4" y="5" width="16" height="4" rx="1.5"/><rect x="4" y="11" width="16" height="4" rx="1.5"/><path d="M4 18.5h10"/>',
+  ),
+  groups: icon(
+    '<path d="M12 4 20 8l-8 4-8-4 8-4Z"/><path d="m4 12 8 4 8-4"/><path d="m4 16 8 4 8-4"/>',
+  ),
 };
