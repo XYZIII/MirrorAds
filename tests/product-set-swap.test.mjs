@@ -6,12 +6,16 @@ import {
   materializeCatalogMappedPackage,
 } from "../src/domain/package.mjs";
 import {
+  changedCore,
   chooseProductSet,
   clearProductSets,
   productSetChoices,
+  renamePairs,
   renameSetToken,
+  setRenameSummary,
   swapProductSets,
 } from "../src/domain/product-set-swap.mjs";
+import { t } from "../src/ui/i18n.mjs";
 
 const CATALOG = "2000000000001";
 const ALL = "1000000000001";
@@ -173,4 +177,108 @@ test("the choice works on the loaded package, can be undone, and resets with a n
   chooseProductSet(state, "other", "x");
   assert.equal(state.massSetBase, next);
   assert.deepEqual(state.massSetSwaps, { other: "x" });
+});
+
+test("names are found whatever their case and separators, and keep their own style", () => {
+  assert.equal(renameSetToken("gina_v4", "Gina_V4", "Gina_V5"), "gina_v5");
+  assert.equal(
+    renameSetToken("GINA_V4 1x1", "Gina_V4", "Gina_V5"),
+    "GINA_V5 1x1",
+  );
+  assert.equal(
+    renameSetToken("PEAK_VD47AU Gina V4", "Gina_V4", "Gina_V5"),
+    "PEAK_VD47AU Gina V5",
+  );
+  assert.equal(
+    renameSetToken("Gina-V4.mp4", "Gina V4", "Gina V5"),
+    "Gina-V5.mp4",
+  );
+  assert.equal(renameSetToken("Gina_V45", "gina v4", "gina v5"), "Gina_V45");
+  // Written without separators, the new name is too.
+  assert.equal(
+    renameSetToken("GinaV4 9x16", "Gina_V4", "Gina_V5"),
+    "GinaV5 9x16",
+  );
+  assert.equal(renameSetToken("ginav4", "Gina_V4", "Gina_V5"), "ginav5");
+  // Written as the set's own name, the new name goes in exactly.
+  assert.equal(
+    renameSetToken("Gina_V4 AU | 1x1", "Gina_V4 AU", "Gina_V5 AU"),
+    "Gina_V5 AU | 1x1",
+  );
+  assert.equal(
+    renameSetToken("gina v4 au", "Gina_V4 AU", "Gina_V5 AU"),
+    "gina v5 au",
+  );
+  assert.equal(renameSetToken("Gina_V4", "Gina_V4", "___"), "___");
+});
+
+test("a set with an extra word still renames the creative's name in ads", () => {
+  assert.deepEqual(changedCore("Gina_V4 AU", "Gina_V5 AU"), {
+    from: "Gina_V4",
+    to: "Gina_V5",
+  });
+  assert.deepEqual(changedCore("AU | Gina_V4", "AU | Gina_V5"), {
+    from: "Gina_V4",
+    to: "Gina_V5",
+  });
+  assert.deepEqual(changedCore("Gina_V9", "Gina_V10"), {
+    from: "Gina_V9",
+    to: "Gina_V10",
+  });
+  assert.deepEqual(renamePairs("Gina_V4", "Gina_V5"), [
+    { from: "Gina_V4", to: "Gina_V5" },
+  ]);
+  assert.deepEqual(renamePairs("Same", "Same"), []);
+
+  const original = catalogPackage();
+  original.catalogExports[0].productSets = [
+    set(V4, "Gina_V4 AU"),
+    set(V5, "Gina_V5 AU"),
+  ];
+  original.productSets = [set(V4, "Gina_V4 AU")];
+  const { packageData, changes, renamed } = swapProductSets(original, {
+    [V4]: V5,
+  });
+  assert.equal(packageData.ads[0].name, "Gina_V5");
+  assert.equal(packageData.source.campaignName, "VD47AU Gina_V5");
+  assert.deepEqual(changes, {
+    campaign: true,
+    adsets: 1,
+    ads: 1,
+    creatives: 1,
+  });
+  // The pair that matched is the one the panel shows.
+  assert.deepEqual(renamed[0], { from: "Gina_V4", to: "Gina_V5" });
+  const state = { clonePackage: original };
+  chooseProductSet(state, V4, V5);
+  assert.match(setRenameSummary(state, t), /^“Gina_V4” → “Gina_V5”/);
+});
+
+test("the panel says what will be renamed, or why nothing will", () => {
+  const state = { clonePackage: catalogPackage() };
+  chooseProductSet(state, V4, V5);
+  assert.equal(
+    setRenameSummary(state, t),
+    "“Gina_V4” → “Gina_V5” in the names: campaign, ad sets: 1, ads: 1.",
+  );
+
+  const other = catalogPackage();
+  other.source.campaignName = "PEAK_VD47AU Mila";
+  other.campaign.name = "PEAK_VD47AU Mila";
+  other.adsets[0].name = "AU 25+";
+  other.ads = [{ id: "ad1", name: "Mila 1x1" }];
+  other.creatives[0].name = "Mila";
+  other.creatives[0].raw.name = "Mila";
+  const plain = { clonePackage: other };
+  chooseProductSet(plain, V4, V5);
+  assert.equal(
+    setRenameSummary(plain, t),
+    "No name contains “Gina_V4”, so names stay as they are. Now: campaign “PEAK_VD47AU Mila”, ad “Mila 1x1”.",
+  );
+  chooseProductSet(plain, V4, V4);
+  assert.equal(
+    setRenameSummary(plain, t),
+    "",
+    "nothing chosen, nothing to say",
+  );
 });

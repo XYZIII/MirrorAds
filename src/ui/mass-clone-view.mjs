@@ -5,6 +5,7 @@ import { escapeHtml } from "../utils/string.mjs";
 import { hasCloneOverrides, parseAmount } from "../domain/clone-overrides.mjs";
 import {
   productSetChoices,
+  setRenameSummary,
   syncProductSetBase,
 } from "../domain/product-set-swap.mjs";
 import {
@@ -686,7 +687,7 @@ export class MassCloneView {
                             .join("")}</select></label>`,
                       )
                       .join("")}</div>
-                    <div class="ma-ovr-hint">${escapeHtml(t("overrides.setNote"))}</div>`
+                    <div class="ma-ovr-hint" data-set-summary>${escapeHtml(setRenameSummary(state, t) || t("overrides.setNote"))}</div>`
                   : ""
               }
               <div class="ma-ovr-note">

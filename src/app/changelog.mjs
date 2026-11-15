@@ -5,6 +5,16 @@
  */
 export const CHANGELOG = [
   {
+    version: "151126b9",
+    date: "2026-11-15",
+    ru: [
+      "Смена сета: имя сета в названиях находится без учёта регистра и разделителей (Gina_V4, gina v4, GINA-V4, GinaV4), и даже если в имени сета есть лишнее слово. Под выбором сета видно, какие названия поменяются, а если ни одно — какие они сейчас.",
+    ],
+    en: [
+      "Set switch: the set's name is found in names whatever the case and separators (Gina_V4, gina v4, GINA-V4, GinaV4), even when the set's name has an extra word. Under the set choice you see which names will change, or what they are when none will.",
+    ],
+  },
+  {
     version: "151126b8",
     date: "2026-11-15",
     ru: [

@@ -6,6 +6,14 @@ export const EXTRA = {
     "overrides.setNote":
       "Where the campaign, ad set and ad names contain the old set's name, the new set's name is used.",
     "overrides.short.set": "set",
+    "overrides.setRenamed": "“{from}” → “{to}” in the names: {what}.",
+    "overrides.setCampaign": "campaign",
+    "overrides.setAdsets": "ad sets: {n}",
+    "overrides.setAds": "ads: {n}",
+    "overrides.setNoMatch":
+      "No name contains “{from}”, so names stay as they are. Now: campaign “{campaign}”, ad “{ad}”.",
+    "overrides.setSameName":
+      "Both sets have the same name, so names stay as they are.",
     "license.until": "until {date}",
     "license.lifetime": "no end date",
     "license.renew": "Renew",
@@ -60,6 +68,13 @@ export const EXTRA = {
     "overrides.setNote":
       "Где в названиях кампании, групп и объявлений стоит имя старого сета, будет имя нового.",
     "overrides.short.set": "сет",
+    "overrides.setRenamed": "«{from}» → «{to}» в названиях: {what}.",
+    "overrides.setCampaign": "кампания",
+    "overrides.setAdsets": "групп: {n}",
+    "overrides.setAds": "объявлений: {n}",
+    "overrides.setNoMatch":
+      "В названиях нет «{from}», они не изменятся. Сейчас: кампания «{campaign}», объявление «{ad}».",
+    "overrides.setSameName": "У сетов одинаковые имена, названия не меняются.",
     "license.until": "до {date}",
     "license.lifetime": "бессрочно",
     "license.renew": "Продлить",

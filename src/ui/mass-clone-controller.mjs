@@ -2,7 +2,9 @@ import { getSourceCatalogsFromPackage } from "../domain/package.mjs";
 import {
   chooseProductSet,
   clearProductSets,
+  setRenameSummary,
 } from "../domain/product-set-swap.mjs";
+import { t } from "./i18n.mjs";
 import { AccountPicks } from "./account-picks.mjs";
 import { BulkPicks } from "./bulk-picks.mjs";
 
@@ -329,6 +331,9 @@ export class MassCloneController {
       const swapFrom = event.target?.dataset?.setSwap;
       if (swapFrom && !state.massRunning) {
         chooseProductSet(state, swapFrom, event.target.value);
+        const summary = setRenameSummary(state, t);
+        if (summary)
+          this.dependencies.logging?.log?.("info", `Product set: ${summary}`);
         this.dependencies.massCloneView.render();
       }
     });
