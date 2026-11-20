@@ -1,5 +1,14 @@
 import { deepClone } from "../utils/object.mjs";
 
+/**
+ * The campaign's own promoted object, for a copy: only its catalog (the
+ * campaign side of Advantage+ catalog ads). Null when it has none.
+ */
+export function campaignCatalogObject(campaign) {
+  const catalogId = campaign?.promoted_object?.product_catalog_id;
+  return catalogId ? { product_catalog_id: String(catalogId) } : null;
+}
+
 export function isLikelyCatalogCreative(creative) {
   const raw = creative?.raw || creative || {};
   const osp = raw.object_story_spec || {};

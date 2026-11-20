@@ -153,6 +153,74 @@ export function getReferencedProductSetIds(packageData) {
   return new Set([...refs.productSets.keys()].map(String));
 }
 
+/**
+ * Catalog creatives that do not say which product set they show take the
+ * set their ad set promotes. Meta does not always return a creative's
+ * product_set_id, and a copy made without one shows "All products".
+ * Changes the given objects; returns how many creatives got a set.
+ */
+export function inheritAdsetProductSets({ ads, adsets, creatives }) {
+  const setOfAdset = new Map(
+    (adsets || [])
+      .filter((adset) => adset?.promoted_object?.product_set_id)
+      .map((adset) => [
+        String(adset.id),
+        String(adset.promoted_object.product_set_id),
+      ]),
+  );
+  if (!setOfAdset.size) return 0;
+  // A creative shared by ad sets of different sets keeps none: no guessing.
+  const wanted = new Map();
+  for (const ad of ads || []) {
+    const creativeId = String(ad?.creative?.id || "");
+    const setId = setOfAdset.get(String(ad?.adset?.id || ad?.adset_id || ""));
+    if (!creativeId || !setId) continue;
+    const seen = wanted.get(creativeId);
+    wanted.set(creativeId, seen === undefined || seen === setId ? setId : "");
+  }
+  let count = 0;
+  for (const creative of creatives || []) {
+    const setId = wanted.get(String(creative?.id || ""));
+    const raw = creative?.raw;
+    if (!setId || !raw || raw.product_set_id) continue;
+    if (!isCatalogTemplateCreative(raw)) continue;
+    raw.product_set_id = setId;
+    count += 1;
+  }
+  return count;
+}
+
+/**
+ * Where a package keeps its product sets, for the log: the campaign's
+ * catalog, the sets of the ad sets and of the creatives.
+ */
+export function describeCatalogPlacement(packageData) {
+  const campaignCatalog = String(
+    packageData?.campaign?.promoted_object?.product_catalog_id || "",
+  );
+  const adsetSets = [
+    ...new Set(
+      (packageData?.adsets || [])
+        .map((adset) => String(adset?.promoted_object?.product_set_id || ""))
+        .filter(Boolean),
+    ),
+  ];
+  const catalogCreatives = (packageData?.creatives || []).filter((creative) =>
+    isCatalogTemplateCreative(creative?.raw || {}),
+  );
+  const creativeSets = [
+    ...new Set(
+      catalogCreatives
+        .map((creative) => String(creative?.raw?.product_set_id || ""))
+        .filter(Boolean),
+    ),
+  ];
+  const withoutSet = catalogCreatives.filter(
+    (creative) => !creative?.raw?.product_set_id,
+  ).length;
+  return { campaignCatalog, adsetSets, creativeSets, withoutSet };
+}
+
 export function getCatalogRefsFromPackage(packageData) {
   const refs = {
     catalogs: new Map(),
@@ -436,6 +504,12 @@ export function readClonePackageFromJson(text, fileName = "") {
   }
   const source =
     data.source && typeof data.source === "object" ? data.source : {};
+  // Files exported before ad sets lent their product set to creatives.
+  inheritAdsetProductSets({
+    ads: data.ads,
+    adsets: Array.isArray(data.adsets) ? data.adsets : [],
+    creatives: Array.isArray(data.creatives) ? data.creatives : [],
+  });
   return {
     ...data,
     source: {

@@ -13,6 +13,7 @@ import {
 import {
   getSourceCatalogsFromPackage,
   getSourceProductSetsFromPackage,
+  inheritAdsetProductSets,
   mergeEntityHintsById,
 } from "../domain/package.mjs";
 import { isLikelyCatalogCreative } from "../domain/catalog.mjs";
@@ -70,6 +71,8 @@ export class CampaignExporter {
               "special_ad_category_country",
               "start_time",
               "stop_time",
+              // The catalog of a catalog campaign is set on the campaign.
+              "promoted_object",
             ].join(","),
           },
         }),
@@ -512,6 +515,15 @@ export class CampaignExporter {
       creatives.push(creativeEntry);
     }
 
+    // The set an ad set promotes is the set its catalog creatives show:
+    // asked of Meta before any guess from the catalog's sets.
+    const inherited = inheritAdsetProductSets({ ads, adsets, creatives });
+    if (inherited) {
+      log(
+        "info",
+        `Catalog creatives took the product set of their ad set: ${inherited}.`,
+      );
+    }
     const dpaCatalogHints = await fetchDpaCatalogHintsForAds(
       accountId,
       ads,
@@ -604,6 +616,8 @@ export class CampaignExporter {
         origin: window.location.origin,
         accountId,
         accountName: account?.name || accountId,
+        // Scheduled starts are read as this account's clock time.
+        timeZone: String(account?.raw?.timezone_name || ""),
         campaignId: String(campaign.id),
         campaignName: campaign.name || campaign.id,
       },

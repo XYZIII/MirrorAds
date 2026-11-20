@@ -127,6 +127,18 @@ export function buildShiftedScheduleWindow(
     end: "",
   };
 
+  // A start that is still ahead was scheduled on purpose: the copy waits for
+  // the same moment instead of starting now.
+  if (start && start.getTime() > anchor.getTime()) {
+    result.start = start.toISOString();
+    if (end && end.getTime() > start.getTime()) {
+      result.end = end.toISOString();
+    } else if (requireEnd) {
+      result.end = new Date(start.getTime() + 30 * 86400000).toISOString();
+    }
+    return result;
+  }
+
   if (start || end || requireEnd) {
     result.start = anchor.toISOString();
   }

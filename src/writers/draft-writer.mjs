@@ -20,6 +20,7 @@ import {
   draftValueItem,
 } from "../domain/draft-values.mjs";
 import { deepClone } from "../utils/object.mjs";
+import { campaignCatalogObject } from "../domain/catalog.mjs";
 import { resolveMutuallyExclusiveStoryImageFields } from "../domain/creative.mjs";
 import { canReuseSourceAssetFeedId } from "../domain/package.mjs";
 import { adsetUsesValueRules } from "../domain/value-rules.mjs";
@@ -95,6 +96,11 @@ export class DraftWriter {
     if (campaign.buying_type) {
       values.push(draftItem("buying_type", campaign.buying_type));
     }
+    // A catalog campaign keeps its catalog, or its ad sets lose their set.
+    const catalog = campaignCatalogObject(campaign);
+    if (catalog && !isOutcomeLeads) {
+      values.push(draftJsonItem("promoted_object", catalog));
+    }
     const startTime = normalizeScheduleValue(campaign.start_time, 0, {
       preservePast: state.importPreserveSchedule,
     });
@@ -132,7 +138,9 @@ export class DraftWriter {
         draftValueItem("is_reels_trending_ads_enabled", null),
         draftItem("automation_unified_campaign_type", "UNIFIED_LEADS"),
         draftValueItem("agency_fee_config", null),
-        draftValueItem("promoted_object", null),
+        catalog
+          ? draftJsonItem("promoted_object", catalog)
+          : draftValueItem("promoted_object", null),
         draftValueItem("source_recommendation_type", null),
         draftValueItem("is_message_campaign", null),
         draftValueItem("collaborative_ads_partner_info", null),

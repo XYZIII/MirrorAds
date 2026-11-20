@@ -209,6 +209,8 @@ export function productSetChoices(packageData) {
       const snapshot = (packageData.catalogExports || []).find(
         (item) => String(item?.catalog?.id || "") === catalogId,
       );
+      const name =
+        getPackageProductSetById(packageData, id)?.name || `Product set ${id}`;
       const options = (snapshot?.productSets || [])
         .map((set) => ({
           id: String(set.id),
@@ -217,11 +219,14 @@ export function productSetChoices(packageData) {
         .sort((a, b) =>
           a.name.localeCompare(b.name, undefined, { numeric: true }),
         );
+      // The campaign's own set is always offered, so the list never shows
+      // another set (say, All products) as the one in use.
+      if (!options.some((option) => option.id === String(id))) {
+        options.unshift({ id: String(id), name });
+      }
       return {
         id: String(id),
-        name:
-          getPackageProductSetById(packageData, id)?.name ||
-          `Product set ${id}`,
+        name,
         catalogId,
         options,
       };

@@ -11,6 +11,7 @@ import {
 } from "../domain/creative.mjs";
 import {
   canReuseSourceAssetFeedId,
+  describeCatalogPlacement,
   materializeCatalogMappedPackage,
 } from "../domain/package.mjs";
 import { createDraftImportTransaction } from "../domain/draft-values.mjs";
@@ -241,6 +242,24 @@ export class ImportWorkflow {
         preparedCatalogs.catalogMappings,
         preparedCatalogs.productSetMappings,
       );
+      // Where the copy keeps its catalog and product sets: when a copy
+      // shows "All products", this line in the log says why.
+      const placement = describeCatalogPlacement(state.importPackage);
+      if (
+        placement.campaignCatalog ||
+        placement.adsetSets.length ||
+        placement.creativeSets.length ||
+        placement.withoutSet
+      ) {
+        log(
+          placement.withoutSet ? "warn" : "info",
+          `Catalog in the copy: campaign catalog ${placement.campaignCatalog || "—"}; ad set product sets ${placement.adsetSets.join(", ") || "—"}; creative product sets ${placement.creativeSets.join(", ") || "—"}${
+            placement.withoutSet
+              ? `; ${placement.withoutSet} catalog creative(s) have no product set, Meta shows All products for them`
+              : ""
+          }.`,
+        );
+      }
 
       const pixelMap = await resolvePixelMap(state.importAccountId);
       state.importPackage = materializePixelMappedPackage(
