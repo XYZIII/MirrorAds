@@ -264,6 +264,8 @@ export function totalReport(rows) {
     campaigns: 0,
     inactiveCampaigns: 0,
     spendingCampaigns: 0,
+    // Switched on, but every ad is rejected, paused or in review.
+    blockedCampaigns: 0,
   };
   for (const row of rows || []) {
     // Campaigns switched on in an account that cannot deliver are not running.
@@ -274,6 +276,9 @@ export function totalReport(rows) {
       total.inactiveCampaigns += inactive;
       total.campaigns += active + inactive;
       total.spendingCampaigns += spendingCount(row);
+      total.blockedCampaigns += Array.isArray(row.blockedCampaigns)
+        ? row.blockedCampaigns.length
+        : 0;
     }
     if (row.error) continue;
     if (row.spendUsd === null) {
@@ -335,14 +340,22 @@ export function activeCampaignIds(campaigns) {
 
 /**
  * Lines for a campaign filter: "all", or the accounts that can deliver and
- * have "active", "inactive" or "spend" (spent in the period) campaigns.
+ * have "active", "inactive", "blocked" (on, but stopped by their ads) or
+ * "spend" (spent in the period) campaigns.
  */
 export function filterByCampaigns(rows, filter) {
-  if (!["active", "inactive", "spend"].includes(filter)) return rows || [];
+  if (!["active", "inactive", "blocked", "spend"].includes(filter)) {
+    return rows || [];
+  }
   return (rows || []).filter((row) => {
     if (!accountDelivers(row.health)) return false;
     if (filter === "active") return Number(row.activeCampaigns) > 0;
     if (filter === "inactive") return Number(row.inactiveCampaigns) > 0;
+    if (filter === "blocked") {
+      return (
+        Array.isArray(row.blockedCampaigns) && row.blockedCampaigns.length > 0
+      );
+    }
     return spendingCount(row) > 0;
   });
 }

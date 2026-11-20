@@ -32,6 +32,11 @@ export const ICONS = {
   accounts: icon(
     '<rect x="4" y="5" width="16" height="4" rx="1.5"/><rect x="4" y="11" width="16" height="4" rx="1.5"/><path d="M4 18.5h10"/>',
   ),
+  trend: icon('<path d="M4 17.5 9.5 12l4 3.5L20 8"/><path d="M15 8h5v5"/>'),
+  history: icon('<circle cx="12" cy="12" r="8"/><path d="M12 7.5V12l3 2"/>'),
+  assets: icon(
+    '<circle cx="12" cy="12" r="7.5"/><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3"/><path d="M12 18.5v3"/><path d="M2.5 12h3"/><path d="M18.5 12h3"/>',
+  ),
   groups: icon(
     '<path d="M12 4 20 8l-8 4-8-4 8-4Z"/><path d="m4 12 8 4 8-4"/><path d="m4 16 8 4 8-4"/>',
   ),

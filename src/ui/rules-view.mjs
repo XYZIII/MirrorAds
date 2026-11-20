@@ -4,6 +4,7 @@ import {
   classifyAccountStatus,
 } from "../domain/report-time.mjs";
 import { escapeHtml } from "../utils/string.mjs";
+import { parseAccountIds } from "./account-picks.mjs";
 import { t } from "./i18n.mjs";
 
 const KNOWN = {
@@ -24,6 +25,40 @@ const KNOWN = {
 function label(group, value) {
   if (!value) return "";
   return KNOWN[group].includes(value) ? t(`rules.${group}.${value}`) : value;
+}
+
+/**
+ * Targets from a pasted list of ad account ids, in the order pasted. Working
+ * accounts are picked; the rest are reported. The source is never a target.
+ */
+export function matchPastedTargets(text, accounts, sourceId) {
+  const ids = parseAccountIds(text);
+  const byId = new Map((accounts || []).map((item) => [item.accountId, item]));
+  const result = { ids, picked: [], notFound: [], unusable: [], source: [] };
+  for (const id of ids) {
+    const item = byId.get(id);
+    if (!item) result.notFound.push(id);
+    else if (id === String(sourceId || "")) result.source.push(id);
+    else if (!item.usable) result.unusable.push(id);
+    else result.picked.push(id);
+  }
+  return result;
+}
+
+/** What a pasted list did, one line per kind of outcome. */
+export function pastedTargetsText(result) {
+  if (!result.ids.length) return t("picks.empty");
+  const list = (ids) => ids.join(", ");
+  const line = (key, ids) =>
+    ids.length ? t(key, { n: ids.length, ids: list(ids) }) : "";
+  return [
+    t("picks.picked", { n: result.picked.length, total: result.ids.length }),
+    line("rules.paste.source", result.source),
+    line("rules.paste.dead", result.unusable),
+    line("picks.notFound", result.notFound),
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 /**
@@ -142,8 +177,13 @@ export class RulesView {
     });
     root.addEventListener("input", (event) => {
       const node = event.target;
-      if (!this.panel?.contains(node) || !node.matches("[data-rules-search]"))
+      if (!this.panel?.contains(node)) return;
+      if (node.matches("[data-rules-paste-text]")) {
+        // Kept for the next render; typing itself needs no re-render.
+        this.dependencies.state.rulesPasteText = node.value;
         return;
+      }
+      if (!node.matches("[data-rules-search]")) return;
       // Filtered in place: a re-render would take the caret away.
       this.dependencies.state.rulesSearch = node.value;
       this.applySearch();
@@ -165,6 +205,23 @@ export class RulesView {
       this.load();
       return;
     }
+    if (step === "paste") {
+      state.rulesPasteOpen = !state.rulesPasteOpen;
+      this.render();
+      if (state.rulesPasteOpen) {
+        this.panel?.querySelector("[data-rules-paste-text]")?.focus();
+      }
+      return;
+    }
+    if (step === "paste-close") {
+      state.rulesPasteOpen = false;
+      this.render();
+      return;
+    }
+    if (step === "paste-apply") {
+      this.applyPasted(state.rulesPasteText || "");
+      return;
+    }
     if (step === "ask" && this.pickedRules().length) {
       if (this.pickedTargets().length) state.rulesStage = "confirm";
     } else if (step === "cancel" || step === "close") {
@@ -175,6 +232,38 @@ export class RulesView {
       return;
     }
     this.render();
+  }
+
+  /** The pasted accounts become the targets, replacing the selection. */
+  applyPasted(text) {
+    const { state } = this.dependencies;
+    if (state.rulesStage === "running") return null;
+    const result = matchPastedTargets(text, this.accounts(), state.rulesSource);
+    if (result.ids.length) {
+      state.rulesTargets = Object.fromEntries(
+        result.picked.map((id) => [id, true]),
+      );
+      // Nothing picked may hide behind a search.
+      state.rulesSearch = "";
+    }
+    state.rulesPasteText = text;
+    state.rulesPasteResult = pastedTargetsText(result);
+    this.render();
+    return result;
+  }
+
+  pasteMarkup() {
+    const { state } = this.dependencies;
+    if (!state.rulesPasteOpen) return "";
+    return `<div class="ma-paste ma-rule-paste">
+        <textarea rows="5" spellcheck="false" data-always-enabled data-rules-paste-text placeholder="${escapeHtml(t("picks.placeholder"))}">${escapeHtml(state.rulesPasteText || "")}</textarea>
+        <div class="ma-paste-bar"><span class="ma-hint">${escapeHtml(t("picks.replaceNote"))}</span><button type="button" class="ma-secondary" data-always-enabled data-rules="paste-close">${escapeHtml(t("picks.close"))}</button><button type="button" class="ma-primary" data-always-enabled data-rules="paste-apply">${escapeHtml(t("picks.apply"))}</button></div>
+        ${
+          state.rulesPasteResult
+            ? `<div class="ma-paste-result" role="status">${escapeHtml(state.rulesPasteResult)}</div>`
+            : ""
+        }
+      </div>`;
   }
 
   async run() {
@@ -404,8 +493,12 @@ export class RulesView {
             ? "checked"
             : ""
         } /> ${escapeHtml(t("rules.targets", { picked: targets.length }))}</label>
-        <input type="text" data-always-enabled data-rules-search placeholder="${escapeHtml(t("rules.search"))}" value="${escapeHtml(state.rulesSearch || "")}" />
+        <span class="ma-rule-find">
+          <button type="button" class="ma-filter-chip" data-always-enabled data-rules="paste" aria-expanded="${state.rulesPasteOpen ? "true" : "false"}" title="${escapeHtml(t("rules.paste.hint"))}">${escapeHtml(t("rules.paste"))}</button>
+          <input type="text" data-always-enabled data-rules-search placeholder="${escapeHtml(t("rules.search"))}" value="${escapeHtml(state.rulesSearch || "")}" />
+        </span>
       </div>
+      ${this.pasteMarkup()}
       <div class="ma-rule-accts">${accountList || `<div class="ma-rule-note">${escapeHtml(t("rules.noAccounts"))}</div>`}</div>
       ${this.barMarkup(picked, targets)}`;
     this.applySearch();

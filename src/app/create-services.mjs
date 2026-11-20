@@ -1,4 +1,6 @@
 import { registerRulesServices } from "./rules-services.mjs";
+import { registerInsightServices } from "./insight-services.mjs";
+import { registerReportServices } from "./report-services.mjs";
 import { Logging } from "../core/logging.mjs";
 import { LocalVersions } from "./local-versions.mjs";
 import { PanelView } from "../ui/panel-view.mjs";
@@ -52,9 +54,6 @@ import { MassCloneView } from "../ui/mass-clone-view.mjs";
 import { MassCloneController } from "../ui/mass-clone-controller.mjs";
 import { CurrencyRateService } from "../accounts/currency-rate-service.mjs";
 import { ValueRuleService } from "../value-rules/value-rule-service.mjs";
-import { ReportActions } from "../reports/report-actions.mjs";
-import { ReportService } from "../reports/report-service.mjs";
-import { ReportsView } from "../ui/reports-view.mjs";
 import { APP_ID } from "./constants.mjs";
 
 /** Construct one runtime. Each service receives only its declared collaborators.
@@ -238,44 +237,16 @@ export function createServices({ state, dom, logger, overrides = {} }) {
       get rulesView() {
         return services.rulesView;
       },
-    });
-  services.reportService =
-    overrides.reportService ||
-    new ReportService({
-      get graphClient() {
-        return services.graphClient;
+      get historyView() {
+        return services.historyView;
+      },
+      get assetsView() {
+        return services.assetsView;
       },
     });
-  services.reportActions =
-    overrides.reportActions ||
-    new ReportActions({
-      get logging() {
-        return services.logging;
-      },
-      get graphClient() {
-        return services.graphClient;
-      },
-      get reportService() {
-        return services.reportService;
-      },
-    });
-  services.reportsView =
-    overrides.reportsView ||
-    new ReportsView({
-      state,
-      dom,
-      appId: APP_ID,
-      get reportActions() {
-        return services.reportActions;
-      },
-      get logging() {
-        return services.logging;
-      },
-      get reportService() {
-        return services.reportService;
-      },
-    });
+  registerReportServices(services, { state, dom, overrides });
   registerRulesServices(services, { state, dom, overrides });
+  registerInsightServices(services, { state, dom, overrides });
   services.sessionService =
     overrides.sessionService ||
     new SessionService({
@@ -345,6 +316,18 @@ export function createServices({ state, dom, logger, overrides = {} }) {
       },
       get campaignController() {
         return services.campaignController;
+      },
+      get reportsView() {
+        return services.reportsView;
+      },
+      get accountHistory() {
+        return services.accountHistory;
+      },
+      get historyView() {
+        return services.historyView;
+      },
+      get assetsView() {
+        return services.assetsView;
       },
     });
   services.accountContextService =
@@ -835,7 +818,7 @@ export function createServices({ state, dom, logger, overrides = {} }) {
       },
     });
   services.editorInspector =
-    overrides.editorInspector || new EditorInspector({});
+    overrides.editorInspector || new EditorInspector({ state });
   services.importWorkflow =
     overrides.importWorkflow ||
     new ImportWorkflow({

@@ -1,7 +1,6 @@
 import { Config } from "../config.mjs";
 import {
   APP_ID,
-  APP_MARK_SVG,
   NATIVE_FETCH_FRAME_ID,
   appMarkSvg,
 } from "../app/constants.mjs";
@@ -15,6 +14,7 @@ import { ICONS } from "./icons.mjs";
 import { LicenseInfo } from "./license-info.mjs";
 import { PageDock } from "./page-dock.mjs";
 import { WhatsNew } from "./whats-new.mjs";
+import { railMarkup, wireTabs } from "./panel-tabs.mjs";
 
 /** PanelController. Dependencies are supplied by the application composition root. */
 export class PanelController {
@@ -46,7 +46,13 @@ export class PanelController {
       loadExportPreview,
     } = this.dependencies.campaignController;
     const { exportSelectedCampaign } = this.dependencies.exportWorkflow;
-    const { massCloneController, reportsView, rulesView } = this.dependencies;
+    const {
+      massCloneController,
+      reportsView,
+      rulesView,
+      historyView,
+      assetsView,
+    } = this.dependencies;
     const { ensureClonePackageLoaded } = this.dependencies.cloneWorkflow;
     const { handleImportJsonSelected } = this.dependencies.importController;
     const { clearCurrentAccountDrafts } = this.dependencies.draftController;
@@ -65,26 +71,7 @@ export class PanelController {
           <div class="ma-spinner"></div>
         </div>
 
-        <nav class="ma-rail" aria-label="MirrorAds">
-          <div class="ma-rail-logo">${APP_MARK_SVG}</div>
-          <button class="ma-tab" data-tab="clone" title="${t("tab.clone")}">${ICONS.clone}<span>${t("tab.clone")}</span></button>
-          <button class="ma-tab" data-tab="reports" data-always-enabled title="${t("tab.reports")}">${ICONS.reports}<span>${t("tab.reports")}</span></button>
-          <button class="ma-tab" data-tab="rules" data-always-enabled title="${t("tab.rules")}">${ICONS.rules}<span>${t("tab.rules")}</span></button>
-          <button class="ma-tab ma-tab-active" data-tab="export" title="${t("tab.export")}">${ICONS.export}<span>${t("tab.export")}</span></button>
-          <button id="${APP_ID}-log-toggle" class="ma-rail-btn ma-log-toggle" data-always-enabled title="${t("btn.log")}" aria-label="${t("btn.log")}" aria-expanded="false">${ICONS.log}<span>${t("logs.title")}</span></button>
-          <span class="ma-rail-gap"></span>
-          <button id="${APP_ID}-refresh" class="ma-rail-btn ma-refresh" data-always-enabled title="${t("btn.refresh")}" aria-label="${t("btn.refresh")}">${ICONS.refresh}</button>
-          <button id="${APP_ID}-service" class="ma-rail-btn" data-always-enabled title="${t("btn.service")}" aria-label="${t("btn.service")}" aria-expanded="false">${ICONS.settings}</button>
-          <div class="ma-lang" role="group" aria-label="Language">
-            <button type="button" data-lang="ru" data-always-enabled title="${t("lang.ru")}" aria-pressed="false">RU</button>
-            <button type="button" data-lang="en" data-always-enabled title="${t("lang.en")}" aria-pressed="true">EN</button>
-          </div>
-          <div id="${APP_ID}-service-menu" class="ma-menu ma-hidden">
-            <button data-role="busy-lock" id="${APP_ID}-clear-drafts" type="button">${t("menu.clearDrafts")}</button>
-            <button id="${APP_ID}-previous-version" type="button">${t("menu.prevVersion")}</button>
-            <div id="${APP_ID}-version-note" class="ma-version-note" role="status"></div>
-          </div>
-        </nav>
+        ${railMarkup()}
 
         <div class="ma-main">
         <div class="ma-head">
@@ -101,6 +88,8 @@ export class PanelController {
         <div class="ma-body">
           <div class="ma-tab-panel ma-hidden" id="${APP_ID}-panel-reports"></div>
           <div class="ma-tab-panel ma-hidden" id="${APP_ID}-panel-rules"></div>
+          <div class="ma-tab-panel ma-hidden" id="${APP_ID}-panel-history"></div>
+          <div class="ma-tab-panel ma-hidden" id="${APP_ID}-panel-assets"></div>
           <div class="ma-tab-panel" id="${APP_ID}-panel-export">
             <section class="ma-card">
               <h3 class="ma-sec">${t("tab.export")}</h3>
@@ -536,38 +525,16 @@ export class PanelController {
       }
     });
     root.querySelector(`#${APP_ID}-close`).addEventListener("click", destroy);
-    root.querySelectorAll(".ma-tab").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        state.activeTab = btn.dataset.tab;
-        renderUI();
-        root
-          .querySelectorAll(".ma-tab")
-          .forEach((t) => t.classList.remove("ma-tab-active"));
-        root
-          .querySelectorAll(".ma-tab-panel")
-          .forEach((p) => p.classList.add("ma-hidden"));
-        btn.classList.add("ma-tab-active");
-        root
-          .querySelector(`#${APP_ID}-panel-${btn.dataset.tab}`)
-          .classList.remove("ma-hidden");
-        if (btn.dataset.tab === "clone") {
-          massCloneController.ensureTargetsLoaded();
-        }
-        if (btn.dataset.tab === "reports") reportsView.open();
-        if (btn.dataset.tab === "rules") rulesView.open();
-        if (btn.dataset.tab === "export") void loadExportPreview();
-      });
+    wireTabs(root, {
+      state,
+      renderUI,
+      loadExportPreview,
+      massCloneController,
+      reportsView,
+      rulesView,
+      historyView,
+      assetsView,
     });
-    // Bind the clone flow up front: the panel is remounted on session changes
-    // and the wiring must exist before the first click.
-    massCloneController.bind(root);
-    reportsView.bind(root);
-    rulesView.bind(root);
-    // Clone is the default tab. Before the session is connected only the
-    // view switches (renderUI); the targets load once the session is ready.
-    if (state.activeTab && state.activeTab !== "export" && state.sessionReady) {
-      root.querySelector(`.ma-tab[data-tab="${state.activeTab}"]`)?.click();
-    }
     root
       .querySelector(`#${APP_ID}-export`)
       .addEventListener("click", exportSelectedCampaign);

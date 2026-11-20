@@ -20,12 +20,15 @@ import { ICONS } from "./icons.mjs";
 import { ReportCampaigns } from "./report-campaigns.mjs";
 import { ReportGroups } from "./report-groups-view.mjs";
 import { ReportPayments } from "./report-payments.mjs";
+import { ReportTrend } from "./report-trend.mjs";
 import { rulesChip, withoutRules } from "./report-rules.mjs";
+import { blockedChip } from "./ad-status-view.mjs";
 import { payable, settling } from "../domain/billing.mjs";
+import { adsManagerAccountUrl } from "../domain/ads-manager-links.mjs";
 
 const PERIODS = ["today", "yesterday", "last7", "custom"];
 const STATUSES = ["all", "live", "dead"];
-const CAMPAIGN_FILTERS = ["all", "active", "inactive", "spend"];
+const CAMPAIGN_FILTERS = ["all", "active", "inactive", "blocked", "spend"];
 const ZONE_KEY = "mirrorads.report.zone";
 const ZONES = ["account", "viewer"];
 const VIEW_KEY = "mirrorads.report.view";
@@ -80,6 +83,14 @@ export class ReportsView {
       },
       render: () => this.render(),
       selectedRows: () => this.selectedRows(),
+    });
+    this.trend = new ReportTrend({
+      state: dependencies.state,
+      get reportService() {
+        return view.dependencies.reportService;
+      },
+      render: () => this.render(),
+      panel: () => this.panel,
     });
   }
 
@@ -187,6 +198,7 @@ export class ReportsView {
   bind(root) {
     if (!root || this.boundRoot === root) return;
     this.boundRoot = root;
+    this.trend.bindHover(root);
     root.addEventListener("click", (event) => {
       const { state } = this.dependencies;
       // A payment link opens Meta's page in a tab by itself: only noted here.
@@ -214,6 +226,7 @@ export class ReportsView {
         return;
       }
       if (this.campaigns.handle(kind, value)) return;
+      if (this.trend.handle(kind, value)) return;
       if (this.groups.handle(kind, value)) return;
       if (this.payments.handle(kind, value)) return;
       if (kind === "period" && PERIODS.includes(value)) {
@@ -481,7 +494,10 @@ export class ReportsView {
   open() {
     const { state } = this.dependencies;
     if (!state.report && !state.reportLoading) this.load();
-    else this.render();
+    else {
+      this.render();
+      this.trend.ensure();
+    }
   }
 
   async load() {
@@ -540,6 +556,7 @@ export class ReportsView {
         this.render();
         // Groups by creative, geo or agent read the new report's ads.
         this.groups.ensureAds();
+        this.trend.ensure();
       }
     }
   }
@@ -623,7 +640,8 @@ export class ReportsView {
               )}</i>`
             : "";
     const pay = this.payments.rowParts(row);
-    const campaigns = `<div class="ma-rep-camps">${health}${pay.chip}${counts}${campaignNote}${rulesChip(row)}</div>`;
+    const blocked = delivers && !row.error ? blockedChip(row) : "";
+    const campaigns = `<div class="ma-rep-camps">${health}${pay.chip}${counts}${blocked}${campaignNote}${rulesChip(row)}</div>`;
     const spendUsd =
       row.spendUsd === null && row.spend > 0 ? null : row.spendUsd;
     return `
@@ -641,8 +659,8 @@ export class ReportsView {
         <div class="ma-rep-num"><b>${row.error ? "—" : money(spendUsd)}</b>${original}</div>
         <div class="ma-rep-num"><b>${count(row.leads)}</b><small>${cost(row.spendUsd, row.leads)}</small></div>
         <div class="ma-rep-num"><b>${count(row.purchases)}</b><small>${cost(row.spendUsd, row.purchases)}</small></div>
-        <a class="ma-rep-open" href="https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${encodeURIComponent(
-          row.accountId,
+        <a class="ma-rep-open" href="${escapeHtml(
+          adsManagerAccountUrl(row.accountId, { timeZone: row.timeZone }),
         )}" target="_blank" rel="noopener" title="${escapeHtml(t("reports.open"))}">${ICONS.open}</a>
       </div>${this.campaigns.markup(row)}`;
   }
@@ -696,6 +714,7 @@ export class ReportsView {
     const controls = `
       <div class="ma-rep-controls">
         ${this.segment("period", PERIODS, state.reportPeriod)}
+        ${this.trend.toggleMarkup(ICONS.trend)}
         <button type="button" class="ma-secondary ma-rep-refresh" data-always-enabled data-report="refresh" ${
           state.reportLoading ? "disabled" : ""
         }>${ICONS.refresh}<span>${escapeHtml(
@@ -761,13 +780,20 @@ export class ReportsView {
         <span title="${escapeHtml(t("reports.camp.hint"))}">${escapeHtml(t("reports.camp.label"))}</span>
         ${this.segment(
           "camp",
-          CAMPAIGN_FILTERS,
+          // "Not running" is offered when there is something to show.
+          CAMPAIGN_FILTERS.filter(
+            (value) =>
+              value !== "blocked" ||
+              campFilter === "blocked" ||
+              campTotal.blockedCampaigns > 0,
+          ),
           campFilter,
           report
             ? {
                 all: campTotal.campaigns,
                 active: campTotal.activeCampaigns,
                 inactive: campTotal.inactiveCampaigns,
+                blocked: campTotal.blockedCampaigns,
                 spend: campTotal.spendingCampaigns,
               }
             : null,
@@ -834,12 +860,13 @@ export class ReportsView {
           : ""
       }`;
     if (view === "groups") {
-      panel.innerHTML = `${views}${controls}${tiles}${statusFilter}
+      panel.innerHTML = `${views}${controls}${tiles}${statusFilter}${this.trend.markup(rows)}
         <div class="${state.reportLoading ? "ma-rep-stale" : ""}">${this.groups.markup(report, rows)}</div>`;
       return;
     }
     panel.innerHTML = `${views}${controls}${tiles}
       ${statusFilter}
+      ${this.trend.markup(rows)}
       ${this.payments.markup()}
       ${this.actionBar()}
       <div class="ma-rep-head">

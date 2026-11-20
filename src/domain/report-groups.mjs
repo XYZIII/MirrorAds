@@ -211,6 +211,7 @@ function addTo(group, row, numbers, running) {
       health: row.health,
       currency: row.currency,
       offsetMinutes: row.offsetMinutes,
+      timeZone: row.timeZone,
       spend: 0,
       spendUsd: 0,
       unconverted: false,

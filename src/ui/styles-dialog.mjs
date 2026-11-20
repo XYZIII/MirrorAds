@@ -205,6 +205,20 @@ export function buildDialogStyles(A) {
         background: var(--ma-lime);
         color: #14280a;
       }
+      ${A} select.ma-zone-filter {
+        width: auto;
+        height: 30px;
+        min-height: 30px;
+        padding: 0 10px;
+        border: 1px solid var(--ma-line);
+        border-radius: 999px;
+        background: #ffffff;
+        color: var(--ma-ink);
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      ${A} select.ma-zone-filter.is-on { border-color: transparent; background: var(--ma-lime); color: #14280a; }
       ${A} .ma-paste { margin: 0 0 12px; padding: 12px; border: 1px solid var(--ma-line); border-radius: 14px; background: var(--ma-soft); }
       ${A} .ma-paste textarea {
         display: block;

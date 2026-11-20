@@ -1,4 +1,5 @@
 import { deepClone } from "../utils/object.mjs";
+import { accountZoneLabel } from "./account-zone.mjs";
 
 export function getAccountLabel(account) {
   const owner = account.ownerName ? `${account.ownerName} / ` : "";
@@ -6,7 +7,9 @@ export function getAccountLabel(account) {
     typeof account.campaignsCount === "number"
       ? ` (${account.campaignsCount})`
       : "";
-  return `${owner}${account.name}${count} [${account.id}]`;
+  // The time zone tells when the account's day starts: worth seeing on pick.
+  const zone = accountZoneLabel(account);
+  return `${owner}${account.name}${count}${zone ? ` · ${zone}` : ""} [${account.id}]`;
 }
 
 export function getSourcePageId(creative) {

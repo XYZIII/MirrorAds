@@ -99,8 +99,10 @@ const DICT = {
     "reports.zoneOffsets": "Fixed offset",
     "reports.active": "{count} active",
     "reports.inactive": "{count} off",
-    "reports.activeHint": "Campaigns switched on in a live account",
-    "reports.inactiveHint": "Campaigns that exist but are switched off",
+    "reports.activeHint":
+      "Campaigns switched on in a live account, with at least one running ad",
+    "reports.inactiveHint":
+      "Campaigns that exist but are switched off or not running because of their ads",
     "reports.activeTotal": "{count} active campaigns",
     "reports.statusLabel": "Accounts",
     "reports.status.all": "All",
@@ -175,8 +177,7 @@ const DICT = {
     "reports.loading": "Loading",
     "reports.loadingFirst": "Loading the report…",
     "reports.empty": "Open the tab again or press Refresh.",
-    "reports.waiting":
-      "Ad accounts are still loading. Press Refresh in a moment.",
+    "reports.waiting": "Loading ad accounts — the report opens by itself.",
     "reports.spend": "Spend",
     "reports.leads": "Leads",
     "reports.purchases": "Purchases",
@@ -489,8 +490,10 @@ const DICT = {
     "reports.zoneOffsets": "Фиксированное смещение",
     "reports.active": "активных: {count}",
     "reports.inactive": "выкл: {count}",
-    "reports.activeHint": "Включённые кампании в живом кабинете",
-    "reports.inactiveHint": "Кампании, которые есть в кабинете, но выключены",
+    "reports.activeHint":
+      "Включённые кампании в живом кабинете, где крутится хотя бы одно объявление",
+    "reports.inactiveHint":
+      "Кампании, которые есть в кабинете, но выключены или не крутятся из-за объявлений",
     "reports.activeTotal": "активных кампаний: {count}",
     "reports.statusLabel": "Кабинеты",
     "reports.status.all": "Все",
@@ -565,8 +568,7 @@ const DICT = {
     "reports.loading": "Загрузка",
     "reports.loadingFirst": "Загружаю отчёт…",
     "reports.empty": "Откройте вкладку ещё раз или нажмите «Обновить».",
-    "reports.waiting":
-      "Кабинеты ещё загружаются. Нажмите «Обновить» чуть позже.",
+    "reports.waiting": "Загружаю кабинеты — отчёт откроется сам.",
     "reports.spend": "Расход",
     "reports.leads": "Лиды",
     "reports.purchases": "Продажи",

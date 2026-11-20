@@ -1,5 +1,8 @@
 import { assessAccountHealth } from "../accounts/account-health.mjs";
-import { campaignChip } from "./account-picks.mjs";
+import { campaignChip, inZone } from "./account-picks.mjs";
+import { adKindLabel } from "./ad-status-view.mjs";
+import { adKindCounts, adStatusKind } from "../domain/ad-status.mjs";
+import { accountZoneLabel, zoneCounts } from "../domain/account-zone.mjs";
 import { cloneToLabel, getLang, smallLabel, statLabel, t } from "./i18n.mjs";
 import { escapeHtml } from "../utils/string.mjs";
 import { hasCloneOverrides, parseAmount } from "../domain/clone-overrides.mjs";
@@ -50,13 +53,28 @@ export function buildPackageStatsHtml(data) {
   const ruleSetNames = ruleSetIds
     .map((id) => getPackageValueRuleSet(data, id)?.name || "")
     .filter(Boolean);
-  const stat = (value, label, hint = "") =>
+  const stat = (value, label, hint = "", extra = "") =>
     `<div class="ma-stat"${
       hint ? ` title="${escapeHtml(hint)}"` : ""
-    }><b>${escapeHtml(String(value))}</b><span>${escapeHtml(label)}</span></div>`;
+    }><b>${escapeHtml(String(value))}</b><span>${escapeHtml(label)}</span>${extra}</div>`;
+  // The ads as they stand now: a rejected one is worth seeing before cloning.
+  const adStates = Array.isArray(data?._adStatuses) ? data._adStatuses : [];
+  const adKinds = adKindCounts(adStates);
+  const adNote = Object.entries(adKinds)
+    .filter(([kind]) => kind !== "active")
+    .map(
+      ([kind, count]) =>
+        `<small class="ma-stat-ads is-${escapeHtml(kind)}">${escapeHtml(`${count} ${adKindLabel(kind)}`)}</small>`,
+    )
+    .join("");
+  const adHint = adStates
+    .map(
+      (ad) => `${ad.name} — ${adKindLabel(adStatusKind(ad.effective_status))}`,
+    )
+    .join("\n");
   return [
     stat(adsets.length, statLabel("stat.adsets", adsets.length)),
-    stat(ads.length, statLabel("stat.ads", ads.length)),
+    stat(ads.length, statLabel("stat.ads", ads.length), adHint, adNote),
     stat(
       creatives.size || ads.length,
       statLabel("stat.creatives", creatives.size || ads.length),
@@ -126,6 +144,41 @@ export class MassCloneView {
     ).length;
   }
 
+  /** Accounts the time zone filter hides. */
+  hiddenByZone() {
+    const zone = this.dependencies.state.massZone ?? "";
+    if (zone === "") return 0;
+    return this.usableAccounts().filter((account) => !inZone(account, zone))
+      .length;
+  }
+
+  /**
+   * The time zone filter lists the zones of the usable accounts with their
+   * counts. Rebuilt only when they change, so an open list stays open.
+   */
+  renderZoneFilter() {
+    const { state, dom } = this.dependencies;
+    const select = dom.root?.querySelector("[data-picks-zone]");
+    if (!select) return;
+    const zones = zoneCounts(this.usableAccounts());
+    const current = String(state.massZone ?? "");
+    const signature = `${zones.map((zone) => `${zone.offset}:${zone.count}`).join(",")}|${current}`;
+    if (select.dataset.signature !== signature) {
+      select.dataset.signature = signature;
+      select.innerHTML = `<option value="">${escapeHtml(t("picks.zoneAll"))}</option>${zones
+        .map(
+          (zone) =>
+            `<option value="${zone.offset}"${String(zone.offset) === current ? " selected" : ""}>${escapeHtml(`${zone.label} · ${zone.count}`)}</option>`,
+        )
+        .join("")}`;
+    }
+    select.value = zones.some((zone) => String(zone.offset) === current)
+      ? current
+      : "";
+    select.classList.toggle("is-on", Boolean(select.value));
+    select.disabled = Boolean(state.massRunning);
+  }
+
   /** Only usable accounts are listed: unsettled or unpaid cabinets cannot host ads. */
   targetAccounts() {
     const { state } = this.dependencies;
@@ -139,6 +192,7 @@ export class MassCloneView {
       ) {
         return false;
       }
+      if (!inZone(account, state.massZone ?? "")) return false;
       if (!query) return true;
       return (
         String(account.name || "")
@@ -466,7 +520,11 @@ export class MassCloneView {
           } /></td>
           <td class="ma-acc-cell"><span class="ma-acc">${typeIcon}<span class="ma-who">${escapeHtml(
             account.name || accountId,
-          )}<span class="ma-id">${escapeHtml(accountId)}</span></span>${
+          )}<span class="ma-id">${escapeHtml(accountId)}${
+            accountZoneLabel(account)
+              ? ` · ${escapeHtml(accountZoneLabel(account))}`
+              : ""
+          }</span></span>${
             isSource
               ? `<span class="ma-chip">${escapeHtml(t("chip.source"))}</span>`
               : ""
@@ -754,13 +812,16 @@ export class MassCloneView {
     if (dom.cloneTargetsNote) {
       const hidden = this.hiddenNoPayment();
       const withCampaigns = this.hiddenWithCampaigns();
+      const otherZone = this.hiddenByZone();
       const notes = [
         hidden ? t("targets.noPayment", { n: hidden }) : "",
         withCampaigns ? t("targets.withCampaigns", { n: withCampaigns }) : "",
+        otherZone ? t("targets.otherZone", { n: otherZone }) : "",
       ].filter(Boolean);
       dom.cloneTargetsNote.textContent = notes.join(" ");
       dom.cloneTargetsNote.classList.toggle("ma-hidden", !notes.length);
     }
+    this.renderZoneFilter();
     const bulkLabel = dom.root?.querySelector("[data-bulk-label]");
     if (bulkLabel) {
       const picked = this.usableAccounts().filter(

@@ -1,3 +1,5 @@
+import { todayRange } from "../domain/ads-manager-links.mjs";
+
 /** EditorInspector. Dependencies are supplied by the application composition root. */
 export class EditorInspector {
   constructor(dependencies) {
@@ -15,6 +17,15 @@ export class EditorInspector {
     if (accountId) {
       url.searchParams.set("act", String(accountId));
     }
+    // Ads Manager would fall back to the last 30 days: show today, by the
+    // account's own date when its time zone is known.
+    const account = (this.dependencies.state?.accounts || []).find(
+      (item) => String(item.id) === String(accountId || ""),
+    );
+    url.searchParams.set(
+      "date",
+      todayRange(Date.now(), account?.raw?.timezone_name || ""),
+    );
     return url.toString();
   }
 

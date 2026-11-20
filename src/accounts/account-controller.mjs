@@ -34,6 +34,8 @@ export class AccountController {
         "currency",
         "business_country_code",
         "timezone_id",
+        "timezone_name",
+        "timezone_offset_hours_utc",
         "adspaymentcycle",
         "funding_source_details",
         "campaigns.limit(1).summary(true){id}",
@@ -80,6 +82,13 @@ export class AccountController {
       state.cloneTargetAccountId =
         currentAccountId || state.accounts[0]?.id || "";
     }
+    // Every open is compared with the last one: new, banned, gone accounts.
+    this.dependencies.accountHistory?.record(state.accounts);
+    // The panel opens on Reports: its report needs only the accounts, so it
+    // starts before the pages and catalogs of the clone tab are read.
+    if (state.activeTab === "reports") this.dependencies.reportsView?.open();
+    if (state.activeTab === "history") this.dependencies.historyView?.open();
+    if (state.activeTab === "assets") this.dependencies.assetsView?.open();
     if (
       state.importAccountId &&
       state.importAccountId === state.cloneTargetAccountId

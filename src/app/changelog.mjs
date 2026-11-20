@@ -5,6 +5,30 @@
  */
 export const CHANGELOG = [
   {
+    version: "201126b1",
+    date: "2026-11-20",
+    ru: [
+      "Панель открывается сразу на «Отчётах» — вкладка стоит первой, а отчёт загружается сам, как только подгрузятся кабинеты.",
+      "Кабинеты из скрипта (отчёты, группы, история, итог клона) открываются в Ads Manager с датой «Сегодня» по времени самого кабинета, а не за последние 30 дней.",
+      "Клонирование: у каждого кабинета виден часовой пояс — и в выборе кабинета-источника, и в списке кабинетов. Новый фильтр по поясу (например, только UTC+7) — скрытые кабинеты снимаются с выбора, а вставленный список ID пропускает кабинеты другого пояса.",
+      "Правила: «Вставить список» — вставляете ID кабинетов столбиком, и они сразу становятся целями для копирования правил. Скрипт пишет, кого не нашёл, какие не работают и что источник пропущен.",
+      "Объявления и их статусы: кампания, которая включена, но все объявления отклонены (или на проверке, на паузе), считается неактивной. В отчётах у кабинета чип «отклонено: N» (при наведении — какие кампании), в строке «Кампании» фильтр «Не крутят». В списке кампаний под каждой видны её объявления со статусом, причина отклонения — при наведении. В клоне в выборе кампании виден её статус, а в сводке источника — сколько объявлений отклонено.",
+      "Новая вкладка «История»: при каждом открытии скрипт сравнивает кабинеты с прошлым разом и записывает новые, забаненные, с долгом, снова живые и пропавшие. О пропаже пишется только для живых кабинетов — удалённый забаненный кабинет не попадает. На вкладке — счётчик новых изменений, фильтры и переход в кабинет.",
+      "Новая вкладка «Пиксели»: все пиксели и каталоги ваших кабинетов — скольким кабинетам доступен каждый, а по кнопке «нет в N» — в каких его нет. По умолчанию считаются только живые кабинеты.",
+      "Отчёты: кнопка «График» — расход по часам (за день) или по дням (за период), с разбивкой: всего, по кабинетам, по поясам, по статусу. При наведении — суммы за час или день, есть вид таблицей. Включается и выключается, выбор запоминается.",
+    ],
+    en: [
+      "The panel opens on Reports: the tab comes first, and the report loads by itself once the accounts are in.",
+      "Accounts opened from the script (reports, groups, history, clone results) show Today in Ads Manager, by the account's own date, instead of the last 30 days.",
+      "Clone: each account shows its time zone, in the source account picker and in the account list. A new time zone filter (say, only UTC+7): hidden accounts are unselected, and a pasted ID list skips accounts of another zone.",
+      "Rules: “Paste a list” — paste ad account IDs, one per line, and they become the targets for the rules. The script says which ones it did not find, which do not work, and that the source was left out.",
+      "Ads and their statuses: a campaign that is on but whose ads are all rejected (or in review, or paused) counts as inactive. In Reports, an account shows a “rejected: N” chip (hover for the campaigns), and the Campaigns row has a “Not running” filter. The campaign list shows each campaign's ads with their status, and the rejection reason on hover. In Clone, the campaign picker shows each campaign's status, and the source summary how many ads are rejected.",
+      "New History tab: each open compares the accounts with the last one and notes new, banned, unpaid, live-again and missing accounts. Missing is noted only for live accounts: a banned account you removed does not show up. The tab has a counter of new changes, filters, and a link to each account.",
+      "New Pixels tab: every pixel and catalog of your accounts, how many accounts can use each one, and with “missing in N”, which cannot. Live accounts only by default.",
+      "Reports: a Chart button — spend by the hour (for a day) or by the day (for a period), split by total, account, time zone or status. Hover for the amounts of an hour or day; a table view too. It switches on and off, and the choice is remembered.",
+    ],
+  },
+  {
     version: "161126b1",
     date: "2026-11-16",
     ru: [

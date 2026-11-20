@@ -1,3 +1,7 @@
+import { buildAdStatusStyles } from "./ad-status-view.mjs";
+import { buildAssetStyles } from "./assets-view.mjs";
+import { buildHistoryStyles } from "./history-view.mjs";
+import { buildTrendStyles } from "./report-trend.mjs";
 import { buildDialogStyles } from "./styles-dialog.mjs";
 import { buildReportStyles } from "./styles-reports.mjs";
 import { buildRuleStyles } from "./styles-rules.mjs";
@@ -388,7 +392,8 @@ export function buildLayoutStyles(appId) {
 
       /* ---- ad accounts: a list with switches ---- */
       ${A} .ma-sec-split .ma-search {
-        flex: 1 1 auto;
+        flex: 1 1 120px;
+        min-width: 0;
         height: 32px;
         margin-left: 6px;
         border-radius: 999px;
@@ -686,6 +691,10 @@ export function buildLayoutStyles(appId) {
       ${buildRuleStyles(A)}
 
       ${buildReportStyles(A)}
+      ${buildAdStatusStyles(A)}
+      ${buildHistoryStyles(A)}
+      ${buildAssetStyles(A)}
+      ${buildTrendStyles(A)}
       /* ---- log ---- */
       ${A} .ma-dock {
         display: flex;

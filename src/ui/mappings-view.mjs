@@ -5,6 +5,7 @@ import {
   getSourcePixelsFromPackage,
 } from "../domain/package.mjs";
 import { getAccountLabel } from "../domain/creative.mjs";
+import { campaignStandingLabel } from "./ad-status-view.mjs";
 import { t } from "./i18n.mjs";
 import { matchMediaSlots } from "../media/media-matching.mjs";
 
@@ -29,15 +30,20 @@ export class MappingsView {
   renderCampaignOptionsList(
     campaigns,
     selectedId,
-    emptyText = "Select account first",
+    emptyText = t("pick.accountFirst"),
   ) {
     if (!campaigns.length) {
       return `<option value="">${escapeHtml(emptyText)}</option>`;
     }
-    const options = [`<option value="">Select campaign</option>`];
+    const options = [
+      `<option value="">${escapeHtml(t("pick.campaign"))}</option>`,
+    ];
     for (const campaign of campaigns) {
+      const standing = campaignStandingLabel(campaign.standing);
       options.push(
-        `<option value="${escapeHtml(campaign.id)}" ${campaign.id === selectedId ? "selected" : ""}>${escapeHtml(campaign.name || campaign.id)}</option>`,
+        `<option value="${escapeHtml(campaign.id)}" ${campaign.id === selectedId ? "selected" : ""}>${escapeHtml(
+          `${campaign.name || campaign.id}${standing ? ` — ${standing}` : ""}`,
+        )}</option>`,
       );
     }
     return options.join("");
@@ -273,7 +279,9 @@ export class MappingsView {
     if (!state.accounts.length) {
       return `<option value="">Load session first</option>`;
     }
-    const options = [`<option value="">Select account</option>`];
+    const options = [
+      `<option value="">${escapeHtml(t("pick.account"))}</option>`,
+    ];
     for (const account of state.accounts) {
       options.push(
         `<option value="${escapeHtml(account.id)}" ${account.id === selectedId ? "selected" : ""}>${escapeHtml(getAccountLabel(account))}</option>`,

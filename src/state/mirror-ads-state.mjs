@@ -117,18 +117,24 @@ export class MirrorAdsState {
     this.rulesTargets = {};
     this.rulesDisabled = false;
     this.rulesSearch = "";
+    // The "paste a list" box of the Rules tab.
+    this.rulesPasteOpen = false;
+    this.rulesPasteText = "";
+    this.rulesPasteResult = "";
     this.rulesStage = "";
     this.rulesProgress = "";
     this.rulesResults = null;
     // null: not read from storage yet; "": follow the browser.
     this.reportViewerZone = null;
     this.reportCustom = null;
-    this.activeTab = "clone";
+    this.activeTab = "reports";
     // The source block starts expanded: the operator picks files there.
     this.cloneSourceCollapsed = false;
     this.massRates = {};
     this.massAutoRates = {};
     this.massSearch = "";
+    // "" or an offset from UTC in minutes: the clone targets of one zone.
+    this.massZone = "";
     this.logDockOpen = false;
     this.massSequence = 0;
     this.clonePreviewOpen = false;

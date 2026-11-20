@@ -4,6 +4,7 @@ import {
   toApiAmount,
 } from "../domain/clone-overrides.mjs";
 import { escapeHtml } from "../utils/string.mjs";
+import { adChips, blockTag } from "./ad-status-view.mjs";
 import { t } from "./i18n.mjs";
 
 /** Campaigns that are switched off are listed up to this many. */
@@ -112,7 +113,10 @@ export class ReportCampaigns {
         await this.dependencies.reportActions.setCampaignStatus(item.id, on);
         item.on = on;
         item.error = "";
-        if (row) {
+        // A campaign its ads keep from running was never counted as active:
+        // switching it changes which list it is in, not the active count.
+        const counts = !item.block;
+        if (row && counts) {
           row.activeCampaigns = Math.max(0, (row.activeCampaigns || 0) + step);
           row.inactiveCampaigns = Math.max(
             0,
@@ -124,7 +128,19 @@ export class ReportCampaigns {
               : row.activeCampaignIds.filter((id) => id !== String(item.id));
           }
         }
-        if (state.report?.total) {
+        if (row && item.block && Array.isArray(row.blockedCampaigns)) {
+          row.blockedCampaigns = on
+            ? [
+                ...row.blockedCampaigns.filter(
+                  (blocked) => blocked.id !== String(item.id),
+                ),
+                { id: String(item.id), name: item.name, reason: item.block },
+              ]
+            : row.blockedCampaigns.filter(
+                (blocked) => blocked.id !== String(item.id),
+              );
+        }
+        if (state.report?.total && counts) {
           state.report.total.activeCampaigns = Math.max(
             0,
             (state.report.total.activeCampaigns || 0) + step,
@@ -182,8 +198,9 @@ export class ReportCampaigns {
           )} ✎</button>`
         : `<small>${escapeHtml(t("reports.camps.adsetBudget"))}</small>`;
     const working = item.busy ? t("reports.camps.working") : "";
-    return `<div class="ma-rep-camp${item.on ? "" : " is-off"}">
-        <div><b title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</b>${budget}${
+    const blocked = item.on && item.block;
+    return `<div class="ma-rep-camp${item.on ? "" : " is-off"}${blocked ? " is-blocked" : ""}">
+        <div><span class="ma-rep-cname"><b title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</b>${blocked ? blockTag(item.block) : ""}</span>${budget}${adChips(item.ads)}${
           item.error
             ? `<small class="ma-rep-err">${escapeHtml(item.error)}</small>`
             : ""
@@ -223,12 +240,18 @@ export class ReportCampaigns {
       `<button type="button" class="${cls}${armed === key ? " is-armed" : ""}" data-always-enabled data-report="${escapeHtml(key)}" ${disabled ? "disabled" : ""}>${escapeHtml(armed === key ? armedLabel : label)}</button>`;
     const running = entry.items.filter((item) => item.on);
     const stopped = entry.items.filter((item) => !item.on);
+    // On, but their ads keep them from running: listed with the running ones.
+    const blocked = running.filter((item) => item.block).length;
     const shown = stopped.slice(0, OFF_LIMIT);
     const list = (items) =>
       items.map((item) => this.itemMarkup(item, row, button)).join("");
     return `<div class="ma-rep-cl">
         <div class="ma-rep-cl-head">
-          <span>${escapeHtml(t("reports.camps.title", { count: running.length }))}</span>
+          <span>${escapeHtml(t("reports.camps.title", { count: running.length - blocked }))}${
+            blocked
+              ? ` · <em class="ma-rep-cl-blocked">${escapeHtml(t("reports.blocked.chip", { count: blocked }))}</em>`
+              : ""
+          }</span>
           ${
             running.length > 1
               ? button(

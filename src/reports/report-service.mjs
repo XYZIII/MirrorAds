@@ -1,11 +1,11 @@
 import { describeRule } from "../domain/ad-rules.mjs";
+import { campaignDelivery } from "../domain/ad-status.mjs";
 import { billingInfo } from "../domain/billing.mjs";
 import { normalizeAccountId } from "../domain/ids.mjs";
 import { summarizeAdRows } from "../domain/report-groups.mjs";
+import { bucketDailyRows, bucketHourlyRows } from "../domain/spend-trend.mjs";
 import {
-  activeCampaignIds,
   classifyAccountStatus,
-  countCampaigns,
   filterHourlyRows,
   isKnownTimeZone,
   resolveWindow,
@@ -16,11 +16,20 @@ import {
   zoneOffsetMinutes,
 } from "../domain/report-time.mjs";
 
-// Campaign statuses ride along with the account fields: one request instead
-// of two per account.
+// Campaign and ad statuses ride along with the account fields: one request
+// instead of three per account.
 const ACCOUNT_FIELDS =
   "currency,account_currency_ratio_to_usd,timezone_name,timezone_offset_hours_utc,account_status,disable_reason,created_time";
-const CAMPAIGN_FIELDS = "campaigns.limit(500){id,effective_status}";
+const CAMPAIGN_FIELDS = "campaigns.limit(500){id,name,effective_status}";
+// A campaign that is on but whose every ad was rejected delivers nothing:
+// the ads tell which switched-on campaigns really run.
+const AD_STATUS_FIELDS = "ads.limit(500){campaign_id,effective_status}";
+// Asked in this order: when Meta refuses a part, the next asks for less.
+const META_FIELDS = [
+  `${ACCOUNT_FIELDS},${CAMPAIGN_FIELDS},${AD_STATUS_FIELDS}`,
+  `${ACCOUNT_FIELDS},${CAMPAIGN_FIELDS}`,
+  ACCOUNT_FIELDS,
+];
 // Read per campaign and added up: the same request tells which campaigns spent.
 const INSIGHT_FIELDS = "campaign_id,spend,impressions,clicks,actions";
 const AD_INSIGHT_FIELDS = "ad_id,ad_name,adset_id,campaign_name,spend,actions";
@@ -47,16 +56,15 @@ export class ReportService {
     if (this.accountMeta.has(accountId)) return this.accountMeta.get(accountId);
     const { graphFetch } = this.dependencies.graphClient;
     let row;
-    try {
-      row = await graphFetch(`act_${accountId}`, {
-        query: { fields: `${ACCOUNT_FIELDS},${CAMPAIGN_FIELDS}` },
-      });
-    } catch {
-      // If Meta refuses the campaigns part, the account itself is still worth
-      // reading: spend and status matter more than the campaign count.
-      row = await graphFetch(`act_${accountId}`, {
-        query: { fields: ACCOUNT_FIELDS },
-      });
+    for (const [index, fields] of META_FIELDS.entries()) {
+      try {
+        row = await graphFetch(`act_${accountId}`, { query: { fields } });
+        break;
+      } catch (error) {
+        // If Meta refuses the ads or campaigns part, the account itself is
+        // still worth reading: spend and status matter more than the counts.
+        if (index === META_FIELDS.length - 1) throw error;
+      }
     }
     if (Array.isArray(row)) row = row[0] || {};
     const offsetHours = Number(row?.timezone_offset_hours_utc);
@@ -72,11 +80,14 @@ export class ReportService {
       disableReason: Number(row?.disable_reason) || 0,
       health: classifyAccountStatus(row?.account_status),
       // Absent when Meta refuses the campaigns edge: unknown, not zero.
+      // Without ads, or with more ads than one page, a campaign that is on
+      // counts as running.
       campaigns: row?.campaigns
-        ? {
-            ...countCampaigns(row.campaigns.data),
-            activeIds: activeCampaignIds(row.campaigns.data),
-          }
+        ? campaignDelivery(
+            row.campaigns.data,
+            Array.isArray(row?.ads?.data) ? row.ads.data : null,
+            !row?.ads?.paging?.next,
+          )
         : null,
       createdTime: String(row?.created_time || ""),
     };
@@ -230,6 +241,7 @@ export class ReportService {
         activeCampaigns: campaigns ? campaigns.active : null,
         inactiveCampaigns: campaigns ? campaigns.inactive : null,
         activeCampaignIds: campaigns ? campaigns.activeIds : null,
+        blockedCampaigns: campaigns ? campaigns.blocked : null,
         spendingCampaignIds: spending,
         health: meta.health,
         statusCode: meta.statusCode,
@@ -259,6 +271,7 @@ export class ReportService {
         activeCampaigns: campaigns ? campaigns.active : null,
         inactiveCampaigns: campaigns ? campaigns.inactive : null,
         activeCampaignIds: campaigns ? campaigns.activeIds : null,
+        blockedCampaigns: campaigns ? campaigns.blocked : null,
         spendingCampaignIds: null,
         // The account itself could not be read: fall back to the status it
         // had when the account list was loaded.
@@ -376,6 +389,55 @@ export class ReportService {
       ratio: meta.ratio,
       delivers: row.health === "live" || row.health === "unknown",
     });
+  }
+
+  /**
+   * One account's spend over the report's period in the chart's buckets,
+   * in USD, on the same clock as its line: { values } or { values: null,
+   * reason } when Meta gives no hourly numbers or no USD rate.
+   */
+  async loadSpendSeries(row, report, frame) {
+    const { graphGetAll } = this.dependencies.graphClient;
+    const accountId = row.accountId;
+    const meta = await this.loadAccountMeta(accountId);
+    const window = resolveWindow({
+      period: report.period,
+      custom: report.custom,
+      nowMs: report.nowMs,
+      zone: report.zoneMode === "viewer" ? report.viewerZone : meta.timeZone,
+      accountZone: meta.timeZone,
+    });
+    const read = (hourly) =>
+      graphGetAll(`act_${accountId}/insights`, {
+        level: "account",
+        fields: "spend",
+        time_range: JSON.stringify(window.accountRange),
+        time_increment: 1,
+        limit: 500,
+        ...(hourly ? { breakdowns: HOURLY } : {}),
+      });
+    const shape = {
+      accountZone: meta.timeZone,
+      startMs: window.startMs,
+      endMs: window.endMs,
+      unit: frame.unit,
+      count: frame.count,
+    };
+    let values = null;
+    // Hours, or days cut on another clock than the account's, need hourly rows.
+    if (frame.unit === "hour" || !window.wholeAccountDays) {
+      const hourly = await read(true);
+      if (hourly.length) values = bucketHourlyRows(hourly, shape);
+      else if (frame.unit === "hour" && row.spend > 0) {
+        return { values: null, reason: "hourly" };
+      }
+    }
+    if (!values) values = bucketDailyRows(await read(false), shape);
+    const usd = values.map((value) => toUsd(value, meta.currency, meta.ratio));
+    if (usd.some((value) => value === null)) {
+      return { values: null, reason: "currency" };
+    }
+    return { values: usd };
   }
 
   /**

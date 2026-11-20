@@ -129,19 +129,18 @@ export class CampaignExporter {
         adsets,
         accountId,
       )) || [];
-    const ads = (
-      await graphGetAll(`${campaignId}/ads`, {
-        fields: [
-          "id",
-          "name",
-          "status",
-          "effective_status",
-          "creative",
-          "adset",
-          "conversion_domain",
-        ].join(","),
-      })
-    ).map(stripVolatileEntityFields);
+    const rawAds = await graphGetAll(`${campaignId}/ads`, {
+      fields: [
+        "id",
+        "name",
+        "status",
+        "effective_status",
+        "creative",
+        "adset",
+        "conversion_domain",
+      ].join(","),
+    });
+    const ads = rawAds.map(stripVolatileEntityFields);
 
     const creativeIds = [
       ...new Set(
@@ -629,6 +628,12 @@ export class CampaignExporter {
             `Creative ${item.name} marked as unsupported: ${item.unsupportedReason}`,
         ),
       _downloadQueue: [...dedupedFiles.values()],
+      // How the source's ads stand now, for the preview; not part of a clone.
+      _adStatuses: rawAds.map((ad) => ({
+        id: String(ad.id || ""),
+        name: String(ad.name || ad.id || ""),
+        effective_status: String(ad.effective_status || ""),
+      })),
     };
   }
 }

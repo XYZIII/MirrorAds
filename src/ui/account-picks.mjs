@@ -1,3 +1,4 @@
+import { accountOffsetMinutes } from "../domain/account-zone.mjs";
 import { normalizeAccountId } from "../domain/ids.mjs";
 import { runPool } from "../utils/pool.mjs";
 import { escapeHtml } from "../utils/string.mjs";
@@ -71,9 +72,16 @@ export function campaignChip(presence) {
   )}">${escapeHtml(`${count} ${campaignsWord(presence.total)}`)}</span>`;
 }
 
+/** Whether an account is in the time zone the filter asks for ("" = any). */
+export function inZone(account, zone) {
+  if (zone === "" || zone === undefined || zone === null) return true;
+  return String(accountOffsetMinutes(account)) === String(zone);
+}
+
 /**
  * The clone tab's account helpers: which accounts already have campaigns,
- * the "without campaigns" filter, and selecting accounts from a pasted list.
+ * the "without campaigns" and time zone filters, and selecting accounts
+ * from a pasted list.
  */
 export class AccountPicks {
   constructor(dependencies) {
@@ -134,15 +142,32 @@ export class AccountPicks {
    */
   dropHiddenSelection() {
     const { state } = this.dependencies;
-    if (!state.massOnlyEmpty) return 0;
+    const zone = state.massZone ?? "";
+    if (!state.massOnlyEmpty && zone === "") return 0;
+    const accounts = new Map(
+      (state.accounts || []).map((account) => [String(account.id), account]),
+    );
     let dropped = 0;
     for (const [id, picked] of Object.entries(state.massTargets || {})) {
-      if (picked?.selected && state.massCampaigns?.[id]?.total > 0) {
+      if (!picked?.selected) continue;
+      const hidden =
+        (state.massOnlyEmpty && state.massCampaigns?.[id]?.total > 0) ||
+        !inZone(accounts.get(id), zone);
+      if (hidden) {
         state.massTargets[id] = { ...picked, selected: false };
         dropped += 1;
       }
     }
     return dropped;
+  }
+
+  /** Shows only the accounts of one time zone ("" = all of them). */
+  setZone(zone) {
+    const { state } = this.dependencies;
+    if (state.massRunning) return;
+    state.massZone = String(zone ?? "");
+    this.dropHiddenSelection();
+    this.render();
   }
 
   toggleOnlyEmpty() {
@@ -161,7 +186,14 @@ export class AccountPicks {
   applyPasted(text) {
     const { state, massCloneView } = this.dependencies;
     const ids = parseAccountIds(text);
-    const result = { ids, picked: [], notFound: [], unusable: [], skipped: [] };
+    const result = {
+      ids,
+      picked: [],
+      notFound: [],
+      unusable: [],
+      skipped: [],
+      otherZone: [],
+    };
     if (!ids.length) return result;
     const known = new Set(
       (state.accounts || []).map((account) => normalizeAccountId(account.id)),
@@ -172,12 +204,20 @@ export class AccountPicks {
         .map((account) => [normalizeAccountId(account.id), String(account.id)]),
     );
     const presence = state.massCampaigns || {};
+    const byId = new Map(
+      (state.accounts || []).map((account) => [
+        normalizeAccountId(account.id),
+        account,
+      ]),
+    );
     const chosen = new Set();
     for (const id of ids) {
       if (!known.has(id)) result.notFound.push(id);
       else if (!usable.has(id)) result.unusable.push(id);
       else if (state.massOnlyEmpty && presence[usable.get(id)]?.total > 0) {
         result.skipped.push(id);
+      } else if (!inZone(byId.get(id), state.massZone ?? "")) {
+        result.otherZone.push(id);
       } else {
         result.picked.push(id);
         chosen.add(usable.get(id));
@@ -214,6 +254,12 @@ export class AccountPicks {
         ? t("picks.skipped", {
             n: result.skipped.length,
             ids: list(result.skipped),
+          })
+        : "",
+      result.otherZone.length
+        ? t("picks.otherZone", {
+            n: result.otherZone.length,
+            ids: list(result.otherZone),
           })
         : "",
       result.unusable.length
@@ -254,7 +300,7 @@ export class AccountPicks {
     const doc = root.ownerDocument;
     const tools = doc.createElement("span");
     tools.className = "ma-picks";
-    tools.innerHTML = `<button type="button" class="ma-filter-chip" data-picks-empty aria-pressed="false" title="${escapeHtml(t("picks.onlyEmptyHint"))}">${escapeHtml(t("picks.onlyEmpty"))}</button><button type="button" class="ma-filter-chip" data-picks-paste aria-expanded="false" title="${escapeHtml(t("picks.pasteHint"))}">${escapeHtml(t("picks.paste"))}</button>`;
+    tools.innerHTML = `<button type="button" class="ma-filter-chip" data-picks-empty aria-pressed="false" title="${escapeHtml(t("picks.onlyEmptyHint"))}">${escapeHtml(t("picks.onlyEmpty"))}</button><select class="ma-zone-filter" data-picks-zone title="${escapeHtml(t("picks.zoneHint"))}"><option value="">${escapeHtml(t("picks.zoneAll"))}</option></select><button type="button" class="ma-filter-chip" data-picks-paste aria-expanded="false" title="${escapeHtml(t("picks.pasteHint"))}">${escapeHtml(t("picks.paste"))}</button>`;
     header.insertBefore(tools, search);
     const box = doc.createElement("div");
     box.className = "ma-paste ma-hidden";
@@ -286,6 +332,9 @@ export class AccountPicks {
         output.classList.remove("ma-hidden");
       }
     });
+    tools
+      .querySelector("[data-picks-zone]")
+      .addEventListener("change", (event) => this.setZone(event.target.value));
     this.syncControls();
     return this;
   }

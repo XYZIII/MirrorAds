@@ -89,6 +89,7 @@ export function buildReportStyles(A) {
       ${A} .ma-rep-camphint { flex: 1 0 100%; margin-top: -2px; padding-left: 70px; font-size: 11px; color: var(--ma-faint); }
       ${A} .ma-seg button[data-report="camp:active"] em { background: #dcf7c0; color: #1f6a10; }
       ${A} .ma-seg button[data-report="camp:spend"] em { background: #dbeafe; color: #1e40af; }
+      ${A} .ma-seg button[data-report="camp:blocked"] em { background: #fde8e8; color: #b91c1c; }
       ${A} .ma-rep-camps i.ma-rep-spending { background: #dbeafe; color: #1e40af; }
       ${A} .ma-rep-camps i.ma-rep-idle { background: #fff7e0; color: #7a5200; }
       ${A} .ma-rep-health { background: #f1f2f5; color: var(--ma-muted); }

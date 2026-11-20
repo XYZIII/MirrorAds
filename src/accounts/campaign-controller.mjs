@@ -1,3 +1,23 @@
+import { adsByCampaign, campaignStanding } from "../domain/ad-status.mjs";
+
+/**
+ * Campaign picker items: id, name, the campaign itself and where it stands,
+ * judged with its ads when they could be read (`ads` null otherwise).
+ */
+export function campaignItems(campaigns, ads) {
+  const groups = Array.isArray(ads) ? adsByCampaign(ads) : null;
+  return (campaigns || []).map((campaign) => ({
+    id: String(campaign.id),
+    name: campaign.name || campaign.id,
+    raw: campaign,
+    standing: campaignStanding(
+      campaign,
+      groups?.get(String(campaign.id)) || [],
+      Boolean(groups),
+    ),
+  }));
+}
+
 /** CampaignController. Dependencies are supplied by the application composition root. */
 export class CampaignController {
   constructor(dependencies) {
@@ -8,6 +28,23 @@ export class CampaignController {
     this.loadCloneSourceCampaigns = this.loadCloneSourceCampaigns.bind(this);
     this.loadExportCampaigns = this.loadExportCampaigns.bind(this);
     this.loadExportPreview = this.loadExportPreview.bind(this);
+    this.adStatusCache = {};
+  }
+
+  /**
+   * Statuses of an account's ads, so a picker can tell a campaign that is on
+   * but has every ad rejected. Null when Meta refuses them.
+   */
+  async fetchAdStatuses(accountId) {
+    const { graphGetAll } = this.dependencies.graphClient;
+    try {
+      return await graphGetAll(`act_${accountId}/ads`, {
+        fields: "campaign_id,effective_status",
+        limit: 500,
+      });
+    } catch {
+      return null;
+    }
   }
 
   async refreshCloneSourceContext() {
@@ -33,6 +70,7 @@ export class CampaignController {
     if (state.accountCampaignsCache[normalizedAccountId]) {
       return state.accountCampaignsCache[normalizedAccountId];
     }
+    const adsRead = this.fetchAdStatuses(normalizedAccountId);
     const campaigns = await graphGetAll(
       `act_${normalizedAccountId}/campaigns`,
       {
@@ -54,6 +92,7 @@ export class CampaignController {
         ].join(","),
       },
     );
+    this.adStatusCache[normalizedAccountId] = await adsRead;
     state.accountCampaignsCache[normalizedAccountId] = campaigns;
     return campaigns;
   }
@@ -67,11 +106,10 @@ export class CampaignController {
       state.cloneSourceAccountId !== accountId
     )
       return;
-    state[fieldName] = campaigns.map((campaign) => ({
-      id: String(campaign.id),
-      name: campaign.name || campaign.id,
-      raw: campaign,
-    }));
+    state[fieldName] = campaignItems(
+      campaigns,
+      this.adStatusCache[String(accountId || "").replace(/^act_/, "")],
+    );
     if (!state[selectedFieldName] && state[fieldName][0]) {
       state[selectedFieldName] = state[fieldName][0].id;
     }
@@ -178,6 +216,7 @@ export class CampaignController {
     try {
       await initializeSession();
       const accountId = state.exportAccountId;
+      const adsRead = this.fetchAdStatuses(accountId);
       const campaigns = await graphGetAll(`act_${accountId}/campaigns`, {
         fields: [
           "id",
@@ -196,12 +235,9 @@ export class CampaignController {
           "stop_time",
         ].join(","),
       });
+      const ads = await adsRead;
       if (state.exportAccountId !== accountId) return;
-      state.exportCampaigns = campaigns.map((campaign) => ({
-        id: String(campaign.id),
-        name: campaign.name || campaign.id,
-        raw: campaign,
-      }));
+      state.exportCampaigns = campaignItems(campaigns, ads);
       if (!state.exportCampaignId && state.exportCampaigns[0]) {
         state.exportCampaignId = state.exportCampaigns[0].id;
       }

@@ -16,7 +16,10 @@ export function buildRuleStyles(A) {
         color: var(--ma-ink);
       }
       ${A} .ma-rule-title label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
-      ${A} .ma-rule-title input[type="text"] { flex: 0 1 220px; height: 32px; font-size: 12px; }
+      ${A} .ma-rule-title input[type="text"] { flex: 0 1 220px; width: 220px; height: 32px; font-size: 12px; }
+      ${A} .ma-rule-find { display: flex; align-items: center; gap: 8px; flex: 0 1 auto; min-width: 0; }
+      ${A} .ma-rule-find .ma-filter-chip { width: auto; flex: 0 0 auto; }
+      ${A} .ma-rule-paste { margin: 0 0 10px; }
       ${A} .ma-rule-list,
       ${A} .ma-rule-accts {
         display: flex;

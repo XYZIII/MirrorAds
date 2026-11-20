@@ -5,6 +5,7 @@ import {
   groupReport,
   sortGroups,
 } from "../domain/report-groups.mjs";
+import { adsManagerAccountUrl } from "../domain/ads-manager-links.mjs";
 import { formatUtcOffset } from "../domain/report-time.mjs";
 import { escapeHtml } from "../utils/string.mjs";
 import { getLang, t } from "./i18n.mjs";
@@ -248,8 +249,8 @@ export class ReportGroups {
         <div class="ma-rep-num"><b>${member.unconverted ? "—" : money(member.spendUsd)}</b></div>
         <div class="ma-rep-num"><b>${count(member.leads)}</b><small>${cost(member.spendUsd, member.leads)}</small></div>
         <div class="ma-rep-num"><b>${count(member.purchases)}</b><small>${cost(member.spendUsd, member.purchases)}</small></div>
-        <a class="ma-grp-open" href="https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${encodeURIComponent(
-          member.accountId,
+        <a class="ma-grp-open" href="${escapeHtml(
+          adsManagerAccountUrl(member.accountId, { timeZone: member.timeZone }),
         )}" target="_blank" rel="noopener" title="${escapeHtml(t("reports.open"))}">${ICONS.open}</a>
       </div>`;
   }

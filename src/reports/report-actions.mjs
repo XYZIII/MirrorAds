@@ -1,8 +1,32 @@
+import {
+  adStatusKind,
+  adsByCampaign,
+  campaignBlock,
+} from "../domain/ad-status.mjs";
 import { computeNewBudget } from "../domain/clone-overrides.mjs";
 import { normalizeAccountId } from "../domain/ids.mjs";
 import { accountDelivers } from "../domain/report-time.mjs";
 
 const ACTIVE = JSON.stringify(["ACTIVE"]);
+// The review feedback says why Meta rejected an ad; asked without it when
+// Meta refuses the field.
+const AD_LIST_FIELDS = [
+  "id,name,campaign_id,effective_status,ad_review_feedback",
+  "id,name,campaign_id,effective_status",
+];
+
+/** Meta's rejection reasons of an ad, as one line of text. */
+export function reviewFeedbackText(feedback) {
+  const texts = [];
+  for (const group of Object.values(feedback || {})) {
+    if (group && typeof group === "object") {
+      for (const [key, value] of Object.entries(group)) {
+        texts.push(String(value || key));
+      }
+    } else if (group) texts.push(String(group));
+  }
+  return [...new Set(texts)].join(" · ");
+}
 
 /**
  * Bulk actions on the campaigns of selected ad accounts. These change live
@@ -34,22 +58,60 @@ export class ReportActions {
    */
   async listCampaigns(accountId) {
     const { graphGetAll } = this.dependencies.graphClient;
-    const rows = await graphGetAll(
-      `act_${normalizeAccountId(accountId)}/campaigns`,
-      {
+    const id = normalizeAccountId(accountId);
+    const [rows, ads] = await Promise.all([
+      graphGetAll(`act_${id}/campaigns`, {
         fields: "id,name,status,effective_status,daily_budget",
         effective_status: '["ACTIVE","PAUSED"]',
         limit: 500,
-      },
-    );
+      }),
+      this.listAds(id),
+    ]);
+    const groups = ads ? adsByCampaign(ads) : null;
+    // Running first, then the ones on but stopped by their ads, then off.
+    const rank = (item) => (item.on ? (item.block ? 1 : 0) : 2);
     return rows
-      .map((row) => ({
-        id: String(row.id),
-        name: String(row.name || row.id),
-        dailyBudget: Number(row.daily_budget) || 0,
-        on: String(row.effective_status || row.status) === "ACTIVE",
-      }))
-      .sort((a, b) => Number(b.on) - Number(a.on));
+      .map((row) => {
+        const own = groups?.get(String(row.id)) || [];
+        return {
+          id: String(row.id),
+          name: String(row.name || row.id),
+          dailyBudget: Number(row.daily_budget) || 0,
+          on: String(row.effective_status || row.status) === "ACTIVE",
+          block: campaignBlock(row, own, Boolean(groups)),
+          ads: groups
+            ? own
+                .map((ad) => ({
+                  id: String(ad.id),
+                  name: String(ad.name || ad.id),
+                  kind: adStatusKind(ad.effective_status),
+                  status: String(ad.effective_status || ""),
+                  feedback: reviewFeedbackText(ad.ad_review_feedback),
+                }))
+                .filter((ad) => ad.kind !== "gone")
+            : null,
+        };
+      })
+      .sort((a, b) => rank(a) - rank(b));
+  }
+
+  /**
+   * The ads of an account with their statuses, or null when Meta refuses
+   * them: the campaigns are listed either way.
+   */
+  async listAds(accountId) {
+    const { graphGetAll } = this.dependencies.graphClient;
+    for (const fields of AD_LIST_FIELDS) {
+      try {
+        return await graphGetAll(`act_${accountId}/ads`, {
+          fields,
+          limit: 500,
+        });
+      } catch {
+        // Fewer fields next.
+      }
+    }
+    return null;
   }
 
   /** Switches one campaign on or off; throws when Meta refuses. */

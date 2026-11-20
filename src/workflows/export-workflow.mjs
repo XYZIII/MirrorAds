@@ -131,6 +131,7 @@ export class ExportWorkflow {
             {
               ...packageData,
               _downloadQueue: undefined,
+              _adStatuses: undefined,
             },
             null,
             2,
