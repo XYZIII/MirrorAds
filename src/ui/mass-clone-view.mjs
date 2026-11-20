@@ -1,6 +1,8 @@
 import { assessAccountHealth } from "../accounts/account-health.mjs";
 import { campaignChip, inZone } from "./account-picks.mjs";
 import { adKindLabel } from "./ad-status-view.mjs";
+import { startZoneHint, startZoneRow, typedClock } from "./start-zone-view.mjs";
+import { pickedViewerZone, startZoneMode } from "../state/zone-settings.mjs";
 import { adKindCounts, adStatusKind } from "../domain/ad-status.mjs";
 import { accountZoneLabel, zoneCounts } from "../domain/account-zone.mjs";
 import { cloneToLabel, getLang, smallLabel, statLabel, t } from "./i18n.mjs";
@@ -702,7 +704,7 @@ export class MassCloneView {
     const swaps = state.massSetSwaps || {};
     const filled =
       hasCloneOverrides(overrides) || Object.keys(swaps).length > 0;
-    const key = `${state.massOverridesOpen ? 1 : 0}|${currency}|${filled ? 1 : 0}|${getLang()}|${JSON.stringify(swaps)}|${setChoices
+    const key = `${state.massOverridesOpen ? 1 : 0}|${currency}|${filled ? 1 : 0}|${getLang()}|${startZoneMode(state)}|${pickedViewerZone(state)}|${JSON.stringify(swaps)}|${setChoices
       .map((choice) => `${choice.id}:${choice.options.length}`)
       .join(",")}`;
     if (!force && this.overridesKey === key && box.childElementCount) return;
@@ -724,6 +726,10 @@ export class MassCloneView {
                 ${field("bid", "text", t("overrides.bid", { currency: currency || "…" }), 'inputmode="decimal" placeholder="—"')}
                 ${field("start", "datetime-local", t("overrides.start"))}
               </div>
+              ${startZoneRow(state)}
+              <div class="ma-ovr-starthint" data-start-hint>${escapeHtml(
+                startZoneHint(state, this.startHintAccounts()),
+              )}</div>
               ${
                 setChoices.length
                   ? `<div class="ma-row">${setChoices
@@ -776,7 +782,9 @@ export class MassCloneView {
     }
     if (String(overrides.start || "").trim()) {
       parts.push(
-        `${t("overrides.short.start")} ${String(overrides.start).replace("T", " ")}`,
+        `${t("overrides.short.start")} ${typedClock(overrides.start)} (${t(
+          `overrides.short.${startZoneMode(state)}`,
+        )})`,
       );
     }
     const swaps = state.massSetSwaps || {};
@@ -789,10 +797,33 @@ export class MassCloneView {
     return parts.join(" · ");
   }
 
+  /** The accounts a start applies to: the selected ones, else all listed. */
+  startHintAccounts() {
+    const { state } = this.dependencies;
+    const usable = this.usableAccounts();
+    const picked = usable.filter(
+      (account) => state.massTargets?.[String(account.id)]?.selected,
+    );
+    return picked.length ? picked : usable;
+  }
+
+  /** Refreshes only the start hint: typing in the start field keeps focus. */
+  renderStartHint() {
+    const { dom } = this.dependencies;
+    const hint = dom.root?.querySelector("[data-start-hint]");
+    if (hint) {
+      hint.textContent = startZoneHint(
+        this.dependencies.state,
+        this.startHintAccounts(),
+      );
+    }
+  }
+
   render() {
     const { state, dom } = this.dependencies;
     if (!state.uiReady || !dom.root) return;
     this.renderOverrides();
+    this.renderStartHint();
     this.renderSource();
     this.renderTargets();
     this.renderProgress();

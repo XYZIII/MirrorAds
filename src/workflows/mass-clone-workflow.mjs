@@ -8,6 +8,7 @@ import {
   getSourcePixelsFromPackage,
 } from "../domain/package.mjs";
 import { normalizeCurrency } from "../domain/currency.mjs";
+import { startZoneMode, viewerZone } from "../state/zone-settings.mjs";
 import { sleep } from "../utils/object.mjs";
 import {
   packageCountries,
@@ -331,9 +332,15 @@ export class MassCloneWorkflow {
       this.dependencies.renderMassClone?.();
       return false;
     }
-    // A start time is typed once and means that clock time in every account.
+    // A typed start means that clock time in every account, or one moment
+    // for all in the operator's own time zone, as the switch says.
     let overrideZone = "";
-    if (String(state.massOverrides?.start || "").trim()) {
+    if (
+      String(state.massOverrides?.start || "").trim() &&
+      startZoneMode(state) === "viewer"
+    ) {
+      overrideZone = viewerZone(state);
+    } else if (String(state.massOverrides?.start || "").trim()) {
       try {
         overrideZone = (
           await this.dependencies.reportService.loadAccountMeta(

@@ -298,6 +298,21 @@ export const EXTRA = {
     "trend.colHour": "Hour",
     "trend.colDay": "Day",
     "trend.aria": "Spend over time",
+    "overrides.zone.label": "Start time is",
+    "overrides.zone.account": "account time",
+    "overrides.zone.viewer": "my time",
+    "overrides.short.account": "account time",
+    "overrides.short.viewer": "my time",
+    "overrides.zone.accountNote":
+      "Each account starts at the typed time on its own clock: accounts in different zones start at different moments.",
+    "overrides.zone.viewerNote":
+      "All accounts start at one moment: the typed time in your zone, {zone}.",
+    "overrides.zone.accountHint":
+      "{time} on each account's clock. In your time ({zone}): {parts}.",
+    "overrides.zone.viewerHint":
+      "All start at one moment: {time} your time ({zone}). On the accounts' clocks: {parts}.",
+    "overrides.zone.viewerOnly":
+      "All start at one moment: {time} your time ({zone}).",
     "tab.assets": "Pixels",
     "tab.assetsHint": "Pixels and catalogs",
     "assets.intro":
@@ -651,6 +666,21 @@ export const EXTRA = {
     "trend.colHour": "Час",
     "trend.colDay": "День",
     "trend.aria": "Расход по времени",
+    "overrides.zone.label": "Время старта",
+    "overrides.zone.account": "по часам кабинета",
+    "overrides.zone.viewer": "по моему времени",
+    "overrides.short.account": "время кабинета",
+    "overrides.short.viewer": "моё время",
+    "overrides.zone.accountNote":
+      "Каждый кабинет стартует во введённое время по своим часам: кабинеты в разных поясах стартуют в разные моменты.",
+    "overrides.zone.viewerNote":
+      "Все кабинеты стартуют в один момент — во введённое время по вашему поясу, {zone}.",
+    "overrides.zone.accountHint":
+      "{time} по часам каждого кабинета. По вашему времени ({zone}): {parts}.",
+    "overrides.zone.viewerHint":
+      "Все стартуют в один момент: {time} по вашему времени ({zone}). По часам кабинетов: {parts}.",
+    "overrides.zone.viewerOnly":
+      "Все стартуют в один момент: {time} по вашему времени ({zone}).",
     "tab.assets": "Пиксели",
     "tab.assetsHint": "Пиксели и каталоги",
     "assets.intro":

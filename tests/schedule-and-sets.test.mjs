@@ -7,12 +7,10 @@ import {
   readClonePackageFromJson,
 } from "../src/domain/package.mjs";
 import { productSetChoices } from "../src/domain/product-set-swap.mjs";
-import { buildShiftedScheduleWindow } from "../src/domain/schedule.mjs";
 import {
-  retimeScheduledStarts,
-  sameClockInZone,
+  buildShiftedScheduleWindow,
   scheduledStart,
-} from "../src/domain/schedule-zones.mjs";
+} from "../src/domain/schedule.mjs";
 import { MirrorAdsState } from "../src/state/mirror-ads-state.mjs";
 import { ScheduleService } from "../src/workflows/schedule-service.mjs";
 import { DirectWriter } from "../src/writers/direct-writer.mjs";
@@ -60,74 +58,24 @@ test("the clone keeps the scheduled start of its ad sets", () => {
   assert.equal(shifted.adsets[0].start_time, new Date(later).toISOString());
 });
 
-test("a scheduled start keeps its clock time in the target account's zone", () => {
-  // 06:00 in Bangkok is 06:00 in Moscow, four hours later.
-  assert.equal(
-    sameClockInZone(
-      "2026-11-21T06:00:00+0700",
-      "Asia/Bangkok",
-      "Europe/Moscow",
-    ),
-    "2026-11-21T03:00:00.000Z",
-  );
+test("a scheduled start is one moment for every copy", () => {
   const packageData = {
-    campaign: { name: "C", start_time: "2026-11-13T00:00:00+0700" },
+    campaign: { start_time: "2026-11-13T00:00:00+0700" },
     adsets: [
-      {
-        name: "Set 1",
-        start_time: "2026-11-21T06:00:00+0700",
-        end_time: "2026-11-23T06:00:00+0700",
-      },
-      { name: "Set 2", start_time: "2026-11-01T06:00:00+0700" },
+      { start_time: "2026-11-21T06:00:00+0700" },
+      { start_time: "2026-11-22T06:00:00+0700" },
     ],
   };
-  const { packageData: moved, moved: notes } = retimeScheduledStarts(
-    packageData,
-    { fromZone: "Asia/Bangkok", toZone: "Europe/Moscow", nowMs: NOW },
-  );
-  assert.equal(moved.adsets[0].start_time, "2026-11-21T03:00:00.000Z");
-  assert.equal(
-    moved.adsets[0].end_time,
-    "2026-11-23T03:00:00.000Z",
-    "the end moves with the start",
-  );
-  assert.equal(moved.adsets[1].start_time, "2026-11-01T06:00:00+0700");
-  assert.equal(
-    moved.campaign.start_time,
-    "2026-11-13T00:00:00+0700",
-    "a start in the past is not a schedule",
-  );
-  assert.deepEqual(
-    notes.map((note) => note.name),
-    ["Set 1"],
-  );
-  assert.equal(
-    packageData.adsets[0].start_time,
-    "2026-11-21T06:00:00+0700",
-    "the source package stays as it was",
-  );
-  // The same clock time already passed in the target: the moment is kept.
-  const early = retimeScheduledStarts(
-    { adsets: [{ start_time: "2026-11-20T13:00:00-0500" }] },
-    { fromZone: "America/New_York", toZone: "Asia/Bangkok", nowMs: NOW },
-  );
-  assert.equal(early.moved.length, 0);
-  assert.equal(
-    early.packageData.adsets[0].start_time,
-    "2026-11-20T13:00:00-0500",
-  );
-  // Same or unknown zones change nothing.
-  for (const zones of [
-    { fromZone: "Asia/Bangkok", toZone: "Asia/Bangkok" },
-    { fromZone: "", toZone: "Europe/Moscow" },
-  ]) {
-    assert.equal(
-      retimeScheduledStarts(packageData, { ...zones, nowMs: NOW }).packageData,
-      packageData,
-    );
-  }
   assert.equal(scheduledStart(packageData, NOW), "2026-11-20T23:00:00.000Z");
   assert.equal(scheduledStart({ adsets: [] }, NOW), "");
+  assert.equal(
+    scheduledStart(
+      { adsets: [{ start_time: new Date(NOW + 60000).toISOString() }] },
+      NOW,
+    ),
+    "",
+    "a start a minute away is as good as now",
+  );
 });
 
 const catalogPackage = () => ({

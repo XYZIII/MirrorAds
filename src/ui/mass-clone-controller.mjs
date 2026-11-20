@@ -7,6 +7,7 @@ import {
 import { t } from "./i18n.mjs";
 import { AccountPicks } from "./account-picks.mjs";
 import { BulkPicks } from "./bulk-picks.mjs";
+import { saveStartZoneMode, saveViewerZone } from "../state/zone-settings.mjs";
 
 const TARGET_CONCURRENCY = 4;
 
@@ -321,11 +322,18 @@ export class MassCloneController {
         ...(state.massOverrides || {}),
         [key]: event.target.value,
       };
+      if (key === "start") this.dependencies.massCloneView.renderStartHint();
     });
     root.addEventListener("change", (event) => {
       // Leaving a field refreshes the summary line.
       if (event.target?.dataset?.override) {
         this.dependencies.massCloneView.renderOverrides();
+        this.dependencies.massCloneView.renderStartHint();
+      }
+      // "My time" for the typed start: the same picker as in Reports.
+      if (event.target?.matches?.("[data-start-viewer-zone]")) {
+        saveViewerZone(state, event.target.value);
+        this.dependencies.massCloneView.renderOverrides(true);
       }
       // Another product set: names and previews change with it.
       const swapFrom = event.target?.dataset?.setSwap;
@@ -338,6 +346,12 @@ export class MassCloneController {
       }
     });
     root.addEventListener("click", (event) => {
+      const zoneButton = event.target.closest?.("[data-start-zone]");
+      if (zoneButton) {
+        saveStartZoneMode(state, zoneButton.dataset.startZone);
+        this.dependencies.massCloneView.renderOverrides(true);
+        return;
+      }
       if (event.target.closest?.("[data-override-toggle]")) {
         state.massOverridesOpen = !state.massOverridesOpen;
         this.dependencies.massCloneView.renderOverrides();

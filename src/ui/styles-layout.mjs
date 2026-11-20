@@ -2,6 +2,7 @@ import { buildAdStatusStyles } from "./ad-status-view.mjs";
 import { buildAssetStyles } from "./assets-view.mjs";
 import { buildHistoryStyles } from "./history-view.mjs";
 import { buildTrendStyles } from "./report-trend.mjs";
+import { buildStartZoneStyles } from "./start-zone-view.mjs";
 import { buildDialogStyles } from "./styles-dialog.mjs";
 import { buildReportStyles } from "./styles-reports.mjs";
 import { buildRuleStyles } from "./styles-rules.mjs";
@@ -695,6 +696,7 @@ export function buildLayoutStyles(appId) {
       ${buildHistoryStyles(A)}
       ${buildAssetStyles(A)}
       ${buildTrendStyles(A)}
+      ${buildStartZoneStyles(A)}
       /* ---- log ---- */
       ${A} .ma-dock {
         display: flex;

@@ -99,6 +99,21 @@ export function normalizeScheduleValue(
   return value;
 }
 
+/**
+ * The earliest start of a package that is still ahead (more than five
+ * minutes away), as ISO; "" when nothing is scheduled.
+ */
+export function scheduledStart(packageData, nowMs = Date.now()) {
+  const soon = nowMs + 5 * 60000;
+  const starts = [
+    packageData?.campaign?.start_time,
+    ...(packageData?.adsets || []).map((adset) => adset?.start_time),
+  ]
+    .map((value) => Date.parse(value || ""))
+    .filter((ms) => Number.isFinite(ms) && ms > soon);
+  return starts.length ? new Date(Math.min(...starts)).toISOString() : "";
+}
+
 export function parseScheduleDate(value) {
   if (!value) {
     return null;

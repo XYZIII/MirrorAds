@@ -276,9 +276,9 @@ const DICT = {
     "overrides.none": "as in the source",
     "overrides.budget": "Daily budget, {currency}",
     "overrides.bid": "Bid, {currency}",
-    "overrides.start": "Start (account time)",
+    "overrides.start": "Start",
     "overrides.note":
-      "Empty fields keep the source's values. Amounts are in the source currency and are converted for other currencies. The start is that clock time in each target account.",
+      "Empty fields keep the source's values. Amounts are in the source currency and are converted for other currencies.",
     "overrides.clear": "Clear",
     "overrides.short.budget": "budget",
     "overrides.short.bid": "bid",
@@ -665,9 +665,9 @@ const DICT = {
     "overrides.none": "как в источнике",
     "overrides.budget": "Бюджет в день, {currency}",
     "overrides.bid": "Ставка, {currency}",
-    "overrides.start": "Старт (время кабинета)",
+    "overrides.start": "Старт",
     "overrides.note":
-      "Пустые поля оставляют значения источника. Суммы в валюте источника, для других валют пересчитываются. Старт означает это время по часам каждого целевого кабинета.",
+      "Пустые поля оставляют значения источника. Суммы в валюте источника, для других валют пересчитываются.",
     "overrides.clear": "Сбросить",
     "overrides.short.budget": "бюджет",
     "overrides.short.bid": "ставка",

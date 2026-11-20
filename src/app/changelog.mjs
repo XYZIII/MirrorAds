@@ -5,14 +5,26 @@
  */
 export const CHANGELOG = [
   {
+    version: "201126b3",
+    date: "2026-11-20",
+    ru: [
+      "Клон: отложенный старт переносится одним моментом — все копии стартуют ровно тогда же, когда источник, в каком бы поясе ни был кабинет. По часам кабинета время пересчитывается само.",
+      "«Изменить при клонировании» → «Время старта»: переключатель «по часам кабинета» (каждый кабинет стартует во введённое время по своим часам — например, все в 05:00) или «по моему времени» (все в один момент по вашему поясу). Пояс выбирается тут же — это тот же «Мой пояс», что в отчётах. Под полем сразу видно, во сколько стартует каждый пояс кабинетов.",
+    ],
+    en: [
+      "Clone: a scheduled start carries over as one moment: every copy starts exactly when the source does, whatever the account's time zone. The account's clock time is worked out by itself.",
+      "Change when cloning → Start time is: a switch between account time (each account starts at the typed time on its own clock, say all at 05:00) and my time (all at one moment in your zone). The zone is picked right there, the same “my time” as in Reports. Below the field you see when each of the accounts' zones starts.",
+    ],
+  },
+  {
     version: "201126b2",
     date: "2026-11-20",
     ru: [
-      "Клон: отложенный запуск больше не теряется. Если старт кампании запланирован на будущее, копии стартуют в то же время по часам своего кабинета (06:00 в источнике — 06:00 в каждом кабинете), а не сразу. Если в каком-то кабинете это время уже прошло, остаётся тот же момент, что у источника. Время старта, введённое в «Изменить при клонировании», как и раньше, главнее.",
+      "Клон: отложенный запуск больше не теряется — раньше копии стартовали сразу, теперь у них остаётся запланированный старт.",
       "Клон каталожных кампаний: копия больше не сбрасывает товарный сет на «All products». Креатив каталога, у которого Meta не отдаёт сет, берёт сет своей группы объявлений, а кампания сохраняет свой каталог. В логе клона видно, какой сет записан в группы и креативы.",
     ],
     en: [
-      "Clone: a scheduled start is no longer lost. When the campaign is set to start later, the copies start at the same time on their own account's clock (06:00 in the source, 06:00 in every account) instead of right away. Where that time has already passed, the copy keeps the source's moment. A start typed under Change when cloning still wins.",
+      "Clone: a scheduled start is no longer lost: the copies used to start right away, now they keep the planned start.",
       "Clone of catalog campaigns: the copy no longer falls back to All products. A catalog creative whose set Meta does not return takes the set of its ad set, and the campaign keeps its catalog. The clone log shows which set went into the ad sets and creatives.",
     ],
   },

@@ -7,12 +7,9 @@ import {
   filterReportRows,
   formatUtcOffset,
   idleActiveCount,
-  isKnownTimeZone,
-  reportZoneChoices,
   spendingCount,
   totalReport,
   validateCustomPeriod,
-  zoneOffsetMinutes,
 } from "../domain/report-time.mjs";
 import { escapeHtml } from "../utils/string.mjs";
 import { t } from "./i18n.mjs";
@@ -25,11 +22,16 @@ import { rulesChip, withoutRules } from "./report-rules.mjs";
 import { blockedChip } from "./ad-status-view.mjs";
 import { payable, settling } from "../domain/billing.mjs";
 import { adsManagerAccountUrl } from "../domain/ads-manager-links.mjs";
+import {
+  browserZone as currentBrowserZone,
+  saveViewerZone,
+  viewerZone as resolveViewerZone,
+} from "../state/zone-settings.mjs";
+import { viewerZoneSelect, zoneLabel } from "./zone-picker.mjs";
 
 const PERIODS = ["today", "yesterday", "last7", "custom"];
 const STATUSES = ["all", "live", "dead"];
 const CAMPAIGN_FILTERS = ["all", "active", "inactive", "blocked", "spend"];
-const ZONE_KEY = "mirrorads.report.zone";
 const ZONES = ["account", "viewer"];
 const VIEW_KEY = "mirrorads.report.view";
 const VIEWS = ["accounts", "groups"];
@@ -128,40 +130,16 @@ export class ReportsView {
 
   /** The browser's zone. Anti-detect profiles and proxies often change it. */
   browserZone() {
-    try {
-      return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-    } catch {
-      return "UTC";
-    }
+    return currentBrowserZone();
   }
 
   /** The zone "My time" uses: the one picked by hand, else the browser's. */
   viewerZone() {
-    const { state } = this.dependencies;
-    if (state.reportViewerZone === null) {
-      let saved = "";
-      try {
-        saved = localStorage.getItem(ZONE_KEY) || "";
-      } catch {
-        saved = "";
-      }
-      state.reportViewerZone = isKnownTimeZone(saved) ? saved : "";
-    }
-    return state.reportViewerZone || this.browserZone();
+    return resolveViewerZone(this.dependencies.state);
   }
 
   setViewerZone(zone) {
-    const { state } = this.dependencies;
-    state.reportViewerZone = isKnownTimeZone(zone) ? zone : "";
-    try {
-      if (state.reportViewerZone) {
-        localStorage.setItem(ZONE_KEY, state.reportViewerZone);
-      } else {
-        localStorage.removeItem(ZONE_KEY);
-      }
-    } catch {
-      // The choice still holds for this session.
-    }
+    saveViewerZone(this.dependencies.state, zone);
   }
 
   /** The custom period, defaulting to yesterday and today. */
@@ -691,25 +669,10 @@ export class ReportsView {
             }>${escapeHtml(t("reports.custom.apply"))}</button>
           </div>`
         : "";
-    const choices = reportZoneChoices();
-    const zoneLabel = (zone) =>
-      `${zone.replace(/^.*\//, "").replace(/_/g, " ")} (${formatUtcOffset(zoneOffsetMinutes(Date.now(), zone))})`;
-    const option = (zone, label) =>
-      `<option value="${escapeHtml(zone)}" ${zone === state.reportViewerZone ? "selected" : ""}>${escapeHtml(label)}</option>`;
     const zoneSelect =
       state.reportZone === "viewer"
         ? `<label class="ma-rep-zonepick"><span>${escapeHtml(t("reports.zonePick"))}</span>
-            <select data-report-viewer-zone>
-              <option value="" ${state.reportViewerZone ? "" : "selected"}>${escapeHtml(
-                t("reports.zoneAuto", { zone: zoneLabel(this.browserZone()) }),
-              )}</option>
-              <optgroup label="${escapeHtml(t("reports.zoneCities"))}">${choices.cities
-                .map((zone) => option(zone, zoneLabel(zone)))
-                .join("")}</optgroup>
-              <optgroup label="${escapeHtml(t("reports.zoneOffsets"))}">${choices.offsets
-                .map((item) => option(item.zone, item.label))
-                .join("")}</optgroup>
-            </select></label>`
+            ${viewerZoneSelect(state, "data-report-viewer-zone")}</label>`
         : "";
     const controls = `
       <div class="ma-rep-controls">

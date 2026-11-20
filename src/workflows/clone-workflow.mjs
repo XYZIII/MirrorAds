@@ -7,14 +7,7 @@ import {
   describeOverrideNote,
 } from "../domain/clone-overrides.mjs";
 import { normalizeImportOptions } from "../domain/options.mjs";
-import { retimeScheduledStarts } from "../domain/schedule-zones.mjs";
-
-/** The IANA time zone of an account of the profile, or "". */
-function accountZone(state, accountId) {
-  const id = String(accountId || "").replace(/^act_/, "");
-  const account = (state.accounts || []).find((item) => String(item.id) === id);
-  return String(account?.raw?.timezone_name || "");
-}
+import { scheduledStart } from "../domain/schedule.mjs";
 
 /** CloneWorkflow. Dependencies are supplied by the application composition root. */
 export class CloneWorkflow {
@@ -226,27 +219,17 @@ export class CloneWorkflow {
       for (const note of overridden.notes) {
         log(note.level, describeOverrideNote(note));
       }
-      // A scheduled start keeps its clock time in the target's own zone,
-      // unless a start time was typed for this run.
-      const retimed = String(state.massOverrides?.start || "").trim()
-        ? { packageData: overridden.packageData, moved: [] }
-        : retimeScheduledStarts(overridden.packageData, {
-            fromZone:
-              packageData.source?.timeZone ||
-              accountZone(
-                state,
-                packageData.source?.accountId || state.cloneSourceAccountId,
-              ),
-            toZone: accountZone(state, state.cloneTargetAccountId),
-          });
-      for (const item of retimed.moved) {
+      // A scheduled start is one moment for every copy, whatever the
+      // account's time zone: the copies start together with the source.
+      const scheduled = scheduledStart(overridden.packageData);
+      if (scheduled) {
         log(
           "info",
-          `Scheduled start of ${item.name || "the campaign"} kept at the same account time: ${item.from} -> ${item.to}.`,
+          `Scheduled start kept: ${scheduled} (the same moment in every account).`,
         );
       }
       const packageForImport = withConvertedBudgets(
-        retimed.packageData,
+        overridden.packageData,
         state.cloneCurrencyRate,
       );
       state.cloneCampaignName = requestedName || state.cloneCampaignName;
