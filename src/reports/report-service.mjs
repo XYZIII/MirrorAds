@@ -36,6 +36,20 @@ const AD_INSIGHT_FIELDS = "ad_id,ad_name,adset_id,campaign_name,spend,actions";
 // Plain node expansions only: a sub-selection inside targeting is not
 // something every account's API answers.
 const AD_FIELDS = "name,effective_status,campaign{name},adset{targeting}";
+// Every ad but archived and deleted ones: ads in review or rejected are
+// launched too, and their account belongs under their creative.
+const AD_STATUSES = JSON.stringify([
+  "ACTIVE",
+  "PAUSED",
+  "PENDING_REVIEW",
+  "DISAPPROVED",
+  "PREAPPROVED",
+  "PENDING_BILLING_INFO",
+  "CAMPAIGN_PAUSED",
+  "ADSET_PAUSED",
+  "IN_PROCESS",
+  "WITH_ISSUES",
+]);
 // The card needs more rights than the amount: without them, the amount alone.
 const BILLING_FIELDS = ["balance,funding_source_details", "balance"];
 const RULE_FIELDS =
@@ -378,10 +392,20 @@ export class ReportService {
       );
     }
     // Each ad carries its ad set's targeting: pages are kept small.
-    const ads = await graphGetAll(`act_${accountId}/ads`, {
-      fields: AD_FIELDS,
-      limit: 100,
-    });
+    let ads;
+    try {
+      ads = await graphGetAll(`act_${accountId}/ads`, {
+        fields: AD_FIELDS,
+        effective_status: AD_STATUSES,
+        limit: 100,
+      });
+    } catch {
+      // Meta's own default list, if it refuses the status filter.
+      ads = await graphGetAll(`act_${accountId}/ads`, {
+        fields: AD_FIELDS,
+        limit: 100,
+      });
+    }
     return summarizeAdRows({
       insights,
       ads,

@@ -5,6 +5,7 @@
  */
 
 import { rulesState } from "./ad-rules.mjs";
+import { adStatusKind } from "./ad-status.mjs";
 import {
   agentOf,
   packageCountries,
@@ -43,6 +44,14 @@ export const RANKED_DIMENSIONS = new Set([
 ]);
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+/**
+ * Ads that are launched though they do not deliver yet: in review,
+ * rejected, with issues, waiting for a payment. Their account is on that
+ * creative even before its first spend.
+ */
+const LAUNCHED = new Set(["review", "rejected", "issues", "billing", "other"]);
+// Why a member does not run, the reason to act on first.
+const REASON_ORDER = ["rejected", "issues", "billing", "review", "other"];
 const STATUS_ORDER = ["live", "billing", "review", "banned", "closed"];
 const CAMPAIGN_ORDER = ["running", "stopped", "none"];
 const RULE_ORDER = ["on", "off", "none"];
@@ -53,7 +62,8 @@ const AGE_ORDER = ["week", "month", "quarter", "older"];
  * several per ad) summed per ad and joined with the ads list, which tells
  * the targeted countries and whether the ad runs now. An ad that spent and
  * is no longer listed keeps the names its insights carry. Ads that neither
- * run nor spent are left out.
+ * run, nor wait to run (review, rejected, issues), nor spent are left out;
+ * in an account that cannot deliver only the ones that spent stay.
  */
 export function summarizeAdRows({
   insights = [],
@@ -71,6 +81,7 @@ export function summarizeAdRows({
         campaignName: "",
         countries: [],
         running: false,
+        kind: "",
         rows: [],
       });
     }
@@ -83,8 +94,8 @@ export function summarizeAdRows({
     item.name = String(ad?.name || "");
     item.campaignName = String(ad?.campaign?.name || "");
     item.countries = packageCountries({ adsets: [ad?.adset || {}] });
-    item.running =
-      delivers && String(ad?.effective_status || "").toUpperCase() === "ACTIVE";
+    item.kind = adStatusKind(ad?.effective_status);
+    item.running = delivers && item.kind === "active";
   }
   for (const row of insights || []) {
     const id = String(row?.ad_id || "");
@@ -106,7 +117,14 @@ export function summarizeAdRows({
         purchases: total.purchases,
       };
     })
-    .filter((ad) => ad.running || ad.spend > 0 || ad.leads || ad.purchases);
+    .filter(
+      (ad) =>
+        ad.running ||
+        ad.spend > 0 ||
+        ad.leads ||
+        ad.purchases ||
+        (delivers && LAUNCHED.has(ad.kind)),
+    );
 }
 
 /** "creo_V4 – Copy 2" and "Creo_V4" are the same creative. */
@@ -218,6 +236,8 @@ function addTo(group, row, numbers, running) {
       leads: null,
       purchases: null,
       running: false,
+      // Why it does not run: an ad's status, or the account's own.
+      reason: "",
       error: row.error || "",
     };
     group.members.set(row.accountId, member);
@@ -235,6 +255,16 @@ function addTo(group, row, numbers, running) {
     member.purchases = (member.purchases || 0) + numbers.purchases;
   }
   member.running ||= Boolean(running);
+  if (!accountDelivers(row.health)) member.reason = `health:${row.health}`;
+  else if (
+    numbers.kind &&
+    REASON_ORDER.includes(numbers.kind) &&
+    (!member.reason ||
+      REASON_ORDER.indexOf(numbers.kind) <
+        REASON_ORDER.indexOf(member.reason.replace(/^ad:/, "")))
+  ) {
+    member.reason = `ad:${numbers.kind}`;
+  }
 }
 
 function finish(group) {
@@ -266,9 +296,11 @@ function finish(group) {
  * Groups account lines by `dimension`. Traits of ads need `ads`, the ads
  * of each account ({ [accountId]: { ads } | { error } }): an account whose
  * ads could not be read goes to the "error" group with its line's numbers,
- * one with no ad that ran or runs to "none". Returns { groups, total }:
- * groups by spend, the special ones last; the total counts every account
- * once, however many groups it is in.
+ * a working one with no launched ad to "none". An account that cannot
+ * deliver (banned, unpaid, closed) counts for traits of ads only with what
+ * it spent in the period. Returns { groups, total }: groups by spend, the
+ * special ones last; the total counts every account once, however many
+ * groups it is in.
  */
 export function groupReport({ dimension, rows = [], ads = {}, nowMs } = {}) {
   const groups = new Map();
@@ -285,12 +317,13 @@ export function groupReport({ dimension, rows = [], ads = {}, nowMs } = {}) {
     }
     const read = ads?.[row.accountId];
     if (!read) continue;
+    const delivers = accountDelivers(row.health);
     if (read.error) {
-      addTo(into(tail("error")), row, row, lineRuns(row));
+      if (delivers) addTo(into(tail("error")), row, row, lineRuns(row));
       continue;
     }
     if (!read.ads?.length) {
-      addTo(into(tail("none")), row, row, false);
+      if (delivers) addTo(into(tail("none")), row, row, false);
       continue;
     }
     for (const ad of read.ads) {

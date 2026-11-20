@@ -743,6 +743,11 @@ export function buildReportStyles(A) {
       ${A} .ma-grp-member.is-idle .ma-rep-acct b { color: var(--ma-muted); font-weight: 500; }
       ${A} .ma-grp-state { font-size: 11px; font-weight: 600; text-align: right; color: #4d7c0f; }
       ${A} .ma-grp-member.is-idle .ma-grp-state { font-weight: 500; color: var(--ma-faint); }
+      ${A} .ma-grp-member.is-idle .ma-grp-state.is-rejected,
+      ${A} .ma-grp-member.is-idle .ma-grp-state.is-dead { font-weight: 600; color: #b91c1c; }
+      ${A} .ma-grp-member.is-idle .ma-grp-state.is-issues,
+      ${A} .ma-grp-member.is-idle .ma-grp-state.is-billing { font-weight: 600; color: #b45309; }
+      ${A} .ma-grp-member.is-idle .ma-grp-state.is-review { font-weight: 600; color: #1d4ed8; }
       ${A} .ma-grp-member .ma-rep-num b { font-size: 12px; }
       ${A} .ma-grp-open {
         display: inline-flex;

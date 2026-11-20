@@ -99,3 +99,43 @@ test("the Rules tab takes its targets from a pasted list", async () => {
   panel.querySelector('[data-rules="paste-close"]').click();
   assert.equal(panel.querySelector("[data-rules-paste-text]"), null);
 });
+
+test("ticking an account keeps the list where it was scrolled", async () => {
+  const { window } = new JSDOM(
+    `<div id="root"><div id="mirrorads-root-panel-rules"></div></div>`,
+  );
+  setLang("en");
+  const root = window.document.getElementById("root");
+  const accounts = Array.from({ length: 40 }, (_, index) => ({
+    id: String(1000000000 + index),
+    name: `Account ${index}`,
+    raw: { account_status: 1 },
+  }));
+  const state = {
+    sessionReady: true,
+    accounts,
+    rulesSource: accounts[0].id,
+    rulesTargets: {},
+  };
+  const view = new RulesView({
+    state,
+    dom: { root },
+    appId: "mirrorads-root",
+    adRuleService: { listRules: async () => [rule] },
+    logging: { log: () => {} },
+  });
+  view.bind(root);
+  await view.load();
+  const panel = root.querySelector("#mirrorads-root-panel-rules");
+  panel.querySelector(".ma-rule-accts").scrollTop = 420;
+  panel.scrollTop = 120;
+  const box = panel.querySelector(`[data-rule-target="${accounts[30].id}"]`);
+  box.checked = true;
+  box.dispatchEvent(new window.Event("change", { bubbles: true }));
+  assert.equal(state.rulesTargets[accounts[30].id], true);
+  assert.equal(panel.querySelector(".ma-rule-accts").scrollTop, 420);
+  assert.equal(panel.scrollTop, 120);
+  const again = panel.querySelector(`[data-rule-target="${accounts[30].id}"]`);
+  assert.notEqual(again, box, "the tab was redrawn");
+  assert.equal(window.document.activeElement, again, "focus stays on the box");
+});

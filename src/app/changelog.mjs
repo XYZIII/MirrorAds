@@ -5,6 +5,18 @@
  */
 export const CHANGELOG = [
   {
+    version: "201126b4",
+    date: "2026-11-20",
+    ru: [
+      "Отчёты → Группы по креативу, гео и агенту: теперь видны все рабочие кабинеты с запущенными объявлениями, даже без расхода. Кабинет, где объявление на проверке, отклонено или с ошибками, стоит в группе своего креатива, а рядом написано, почему он не крутится. Забаненные и с долгом попадают только если тратили за период — с пометкой статуса. Кабинеты, где всё на паузе, собраны в «Ничего не запущено».",
+      "Правила: при нажатии на галочку у кабинета список больше не прыгает наверх.",
+    ],
+    en: [
+      "Reports → Groups by creative, geo and agent: every working account with a launched ad now shows, spend or not. An account whose ad is in review, rejected or has issues sits in its creative's group, with the reason it is not running. Banned and unpaid accounts appear only if they spent in the period, marked with their status. Accounts with everything paused are under Nothing launched.",
+      "Rules: ticking an account no longer throws the list back to the top.",
+    ],
+  },
+  {
     version: "201126b3",
     date: "2026-11-20",
     ru: [

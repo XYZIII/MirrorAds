@@ -149,11 +149,13 @@ export class RulesView {
         if (node.checked) state.rulesPicked[node.dataset.rulePick] = true;
         else delete state.rulesPicked[node.dataset.rulePick];
         this.render();
+        this.refocus("rulePick", node.dataset.rulePick);
       } else if (node.matches("[data-rule-target]")) {
         state.rulesTargets = { ...state.rulesTargets };
         if (node.checked) state.rulesTargets[node.dataset.ruleTarget] = true;
         else delete state.rulesTargets[node.dataset.ruleTarget];
         this.render();
+        this.refocus("ruleTarget", node.dataset.ruleTarget);
       } else if (node.matches("[data-rules-all]")) {
         const picked = {};
         if (node.checked) {
@@ -435,10 +437,40 @@ export class RulesView {
       </div>`;
   }
 
+  /** The clicked box keeps the keyboard focus after the redraw, in place. */
+  refocus(key, value) {
+    const attribute =
+      key === "rulePick" ? "data-rule-pick" : "data-rule-target";
+    const box = [
+      ...(this.panel?.querySelectorAll(`[${attribute}]`) || []),
+    ].find((node) => node.dataset[key] === value);
+    try {
+      box?.focus({ preventScroll: true });
+    } catch {
+      // Focus is a nicety; the click has already done its work.
+    }
+  }
+
   render() {
-    const { state } = this.dependencies;
     const panel = this.panel;
     if (!panel) return;
+    // Every tick redraws the tab: its lists keep where they were scrolled,
+    // or a click on an account far down would throw the list to the top.
+    const scrolled = [".ma-rule-list", ".ma-rule-accts"].map((selector) => [
+      selector,
+      panel.querySelector(selector)?.scrollTop || 0,
+    ]);
+    const panelTop = panel.scrollTop;
+    this.draw(panel);
+    for (const [selector, top] of scrolled) {
+      const node = panel.querySelector(selector);
+      if (node && top) node.scrollTop = top;
+    }
+    if (panelTop) panel.scrollTop = panelTop;
+  }
+
+  draw(panel) {
+    const { state } = this.dependencies;
     const accounts = this.accounts();
     const rules = state.rulesList || [];
     const picked = this.pickedRules();

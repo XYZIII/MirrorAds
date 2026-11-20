@@ -138,7 +138,7 @@ export const EXTRA = {
     "groups.dim.currency": "Currency",
     "groups.dim.age": "Account age",
     "groups.hint.creative":
-      "By ad name. Running: accounts where an ad with this creative is on right now.",
+      "By ad name. Every working account with a launched ad is here, spend or not; banned and unpaid ones only with what they spent. Running: an ad with this creative is on right now.",
     "groups.hint.geo": "By the countries the ad sets target.",
     "groups.hint.agent": "By the first word of the campaign name.",
     "groups.hint.zone": "By the account's time zone.",
@@ -169,7 +169,7 @@ export const EXTRA = {
     "groups.unconvertedHint":
       "Accounts with no rate to USD are not in the sum.",
     "groups.special.unknown": "Not set",
-    "groups.special.none": "No ads",
+    "groups.special.none": "Nothing launched",
     "groups.special.error": "Could not read",
     "groups.creative.unknown": "No name",
     "groups.status.live": "Live",
@@ -509,7 +509,7 @@ export const EXTRA = {
     "groups.dim.currency": "Валюта",
     "groups.dim.age": "Возраст кабинета",
     "groups.hint.creative":
-      "По названию объявления. Запущено — кабинеты, где сейчас крутится объявление с этим креативом.",
+      "По названию объявления. Здесь все рабочие кабинеты с запущенными объявлениями — с расходом или без; забаненные и с долгом — только если тратили за период. Запущено — объявление с этим креативом сейчас крутится.",
     "groups.hint.geo": "По странам в таргетинге групп объявлений.",
     "groups.hint.agent": "По первому слову названия кампании.",
     "groups.hint.zone": "По часовому поясу кабинета.",
@@ -538,7 +538,7 @@ export const EXTRA = {
     "groups.unconverted": "+{count} без курса",
     "groups.unconvertedHint": "Кабинеты без курса к доллару не вошли в сумму.",
     "groups.special.unknown": "Не определено",
-    "groups.special.none": "Нет объявлений",
+    "groups.special.none": "Ничего не запущено",
     "groups.special.error": "Не удалось прочитать",
     "groups.creative.unknown": "Без названия",
     "groups.status.live": "Живые",

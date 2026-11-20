@@ -10,6 +10,7 @@ import { formatUtcOffset } from "../domain/report-time.mjs";
 import { escapeHtml } from "../utils/string.mjs";
 import { getLang, t } from "./i18n.mjs";
 import { ICONS } from "./icons.mjs";
+import { adKindLabel } from "./ad-status-view.mjs";
 
 const GROUP_KEY = "mirrorads.report.groupBy";
 const SORTS = ["label", "accounts", "spend", "leads", "purchases"];
@@ -229,7 +230,22 @@ export class ReportGroups {
     )}</small></div>`;
   }
 
+  /** "running", or why not: the ad's status, or the account's own. */
+  memberState(member) {
+    if (member.running) return { text: t("groups.running"), tone: "" };
+    const reason = String(member.reason || "");
+    if (reason.startsWith("health:")) {
+      return { text: t(`reports.health.${reason.slice(7)}`), tone: "is-dead" };
+    }
+    if (reason.startsWith("ad:")) {
+      const kind = reason.slice(3);
+      return { text: adKindLabel(kind), tone: `is-${kind}` };
+    }
+    return { text: t("groups.idle"), tone: "" };
+  }
+
   member(member) {
+    const status = this.memberState(member);
     const zone =
       member.offsetMinutes === null || member.offsetMinutes === undefined
         ? ""
@@ -243,9 +259,7 @@ export class ReportGroups {
               : ""
           }</div>
         </div>
-        <span class="ma-grp-state">${escapeHtml(
-          t(member.running ? "groups.running" : "groups.idle"),
-        )}</span>
+        <span class="ma-grp-state${status.tone ? ` ${status.tone}` : ""}">${escapeHtml(status.text)}</span>
         <div class="ma-rep-num"><b>${member.unconverted ? "—" : money(member.spendUsd)}</b></div>
         <div class="ma-rep-num"><b>${count(member.leads)}</b><small>${cost(member.spendUsd, member.leads)}</small></div>
         <div class="ma-rep-num"><b>${count(member.purchases)}</b><small>${cost(member.spendUsd, member.purchases)}</small></div>

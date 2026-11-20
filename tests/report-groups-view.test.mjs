@@ -235,7 +235,7 @@ test("Reports shows each account's rules and groups accounts by creative or time
     assert.deepEqual(groups(), [
       ["creo_V4", "1", "of 2", "$60.00"],
       ["promo_V1", "1", "of 1", "$20.00"],
-      ["No ads", "0", "of 1", "$0.00"],
+      ["Nothing launched", "0", "of 1", "$0.00"],
     ]);
     const adReads = graph.calls.filter((call) => call.endsWith("/ads")).length;
     assert.equal(adReads, 3);

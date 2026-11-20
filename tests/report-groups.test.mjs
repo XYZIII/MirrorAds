@@ -320,3 +320,89 @@ test("a rule is described with its money in the account's own units", () => {
   });
   assert.deepEqual(rulesState(null), { state: "unknown", on: 0, off: 0 });
 });
+
+test("by creative: every working account with a launched ad, spend or not", () => {
+  const ad = (id, name, status, extra = {}) => ({
+    id,
+    name,
+    effective_status: status,
+    ...extra,
+  });
+  // In review, rejected or with issues: launched, kept before any spend.
+  const waiting = summarizeAdRows({
+    ads: [
+      ad("1", "creo_V4", "PENDING_REVIEW"),
+      ad("2", "creo_V5", "DISAPPROVED"),
+      ad("3", "creo_V6", "PAUSED"),
+      ad("4", "creo_V7", "ADSET_PAUSED"),
+    ],
+  });
+  assert.deepEqual(
+    waiting.map((item) => [item.name, item.kind, item.running]),
+    [
+      ["creo_V4", "review", false],
+      ["creo_V5", "rejected", false],
+    ],
+  );
+  // An account that cannot deliver keeps only what spent.
+  assert.deepEqual(
+    summarizeAdRows({
+      ads: [ad("1", "creo_V4", "PENDING_REVIEW")],
+      delivers: false,
+    }),
+    [],
+  );
+
+  const rows = [
+    { accountId: "1", name: "Live, in review", health: "live", spend: 0 },
+    { accountId: "2", name: "Live, running", health: "live", spend: 5 },
+    { accountId: "3", name: "Banned, silent", health: "banned", spend: 0 },
+    { accountId: "4", name: "Banned, spent", health: "banned", spend: 7 },
+    { accountId: "5", name: "Live, paused", health: "live", spend: 0 },
+    { accountId: "6", name: "Banned, unread", health: "banned", spend: 0 },
+  ];
+  const item = (name, extra) => ({
+    id: name,
+    name,
+    campaignName: "",
+    countries: [],
+    running: false,
+    kind: "",
+    spend: 0,
+    spendUsd: 0,
+    leads: null,
+    purchases: null,
+    ...extra,
+  });
+  const ads = {
+    1: { ads: [item("creo_V4", { kind: "review" })] },
+    2: {
+      ads: [
+        item("creo_V4", {
+          kind: "active",
+          running: true,
+          spend: 5,
+          spendUsd: 5,
+        }),
+      ],
+    },
+    3: { ads: [] },
+    4: { ads: [item("creo_V4", { kind: "active", spend: 7, spendUsd: 7 })] },
+    5: { ads: [] },
+    6: { error: "(#17) limit" },
+  };
+  const { groups, total } = groupReport({ dimension: "creative", rows, ads });
+  const members = (key) =>
+    groups
+      .find((group) => group.key === key)
+      ?.members.map((member) => [member.name, member.running, member.reason]);
+  assert.deepEqual(members("c:creo_v4"), [
+    ["Live, running", true, ""],
+    ["Banned, spent", false, "health:banned"],
+    ["Live, in review", false, "ad:review"],
+  ]);
+  assert.deepEqual(members("none"), [["Live, paused", false, ""]]);
+  assert.equal(members("error"), undefined, "a banned account is not counted");
+  assert.equal(total.accounts, 4);
+  assert.equal(total.running, 1);
+});
